@@ -1,6 +1,8 @@
 import glm
 import random
 import numpy as np
+import cv2
+import p1
 
 block_size = 1.0
 
@@ -46,3 +48,26 @@ def get_cam_rotation_matrices():
         cam_rotations[c] = glm.rotate(cam_rotations[c], cam_angles[c][1] * np.pi / 180, [0, 1, 0])
         cam_rotations[c] = glm.rotate(cam_rotations[c], cam_angles[c][2] * np.pi / 180, [0, 0, 1])
     return cam_rotations
+
+# capture images from intrinsics.avi
+def Capture(Cam):
+    cap = cv2.VideoCapture('./data/cam{}/intrinsics.avi'.format(Cam))
+    totalFrames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    index = random.sample(range(totalFrames), 25)
+    frameIndex = 0
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+        if frameIndex in index:
+            filename = f'./data/cam{Cam}/capture/capturedImg_{frameIndex:04d}.jpg'
+            cv2.imwrite(filename, frame)
+        frameIndex += 1
+    cap.release()
+    cv2.destroyAllWindows()
+
+if __name__ == '__main__':
+    for i in range(4):
+        # Capture(i+1)
+        filename = f'./data/cam{i+1}/capture/*.jpg'
+        p1.firstRun(filename)
