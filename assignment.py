@@ -148,6 +148,7 @@ def findCorners(Cam):
 
     return cornerPoints
 
+
 # get camera parameters (only run once)
 def getCameraParam():
     for i in range(4):
@@ -157,6 +158,121 @@ def getCameraParam():
         findCorners(i+1)        # find corners automatically (doesn't work)
         getExtrinsics(i+1)      # get extrinsics
 
+
+# create a background model by averaging 50 frames
+def backgroundModel(Cam):
+    cap = cv2.VideoCapture('./data/cam{}/background.avi'.format(Cam))
+    frams = None
+    i = 0
+
+    for i in range(50):
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        if frams is None:
+            frams = gray.astype('float')
+        else:
+            frams += gray.astype('float')
+        i += 1
+
+    print(i)
+    avgFrame = (frams/i).astype('uint8')
+
+    cv2.imshow('Background Model', avgFrame)
+    cv2.imwrite('./data/cam{}/background.jpg'.format(Cam), avgFrame)
+    cv2.waitKey(0)
+    cap.release()
+    cv2.destroyAllWindows()
+
+# background subtraction (this does not work)
+def backgroundSub2(Cam):
+    cap = cv2.VideoCapture('./data/cam{}/video.avi'.format(Cam))
+    background = cv2.imread('./data/cam{}/background.jpg'.format(Cam))
+
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        sub = cv2.absdiff(frame, background)            # subtract the background mode
+        hsvSub = cv2.cvtColor(sub, cv2.COLOR_BGR2HSV)   # convert the image to HSV color space
+
+        h, s, v = cv2.split(hsvSub)                     # split the HSV image into its three channels
+
+        # Apply a threshold to each channel
+        _, hMask = cv2.threshold(h, 200, 225, cv2.THRESH_BINARY)
+        _, sMask = cv2.threshold(s, 88, 225, cv2.THRESH_BINARY)
+        _, vMask = cv2.threshold(v, 220, 225, cv2.THRESH_BINARY)
+
+        # get the final foreground segmentation mask
+        mask = cv2.bitwise_or(hMask, cv2.bitwise_or(sMask, vMask))
+
+        # kernel = np.ones((2, 2), np.uint8)
+        # mask = cv2.erode(mask, kernel, iterations=3)    # remove small isolated white pixels
+        # kernel = np.ones((2, 2), np.uint8)
+        # mask = cv2.dilate(mask, kernel, iterations=1)   # fill in small isolated black pixels
+        # mask = cv2.medianBlur(mask, 5)
+
+        cv2.imshow('Foreground Mask', mask)
+        cv2.waitKey(0)
+
+    cap.release()
+    cv2.destroyAllWindows()
+
+# background subtraction
+def backgroundSub(Cam):
+    background = cv2.imread('./data/cam{}/background.jpg'.format(Cam))
+    grayBG = cv2.cvtColor(background, cv2.COLOR_BGR2GRAY)
+
+    cap = cv2.VideoCapture('./data/cam{}/video.avi'.format(Cam))
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        grayFrame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        sub = cv2.absdiff(grayFrame, grayBG)                        # subtract the background
+        _, mask = cv2.threshold(sub, 50, 225, cv2.THRESH_BINARY)    # create a mask of the foreground
+
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2, 2))
+        morph = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)      # remove noise
+        kernel = np.ones((3, 3), np.uint8)
+        morph = cv2.dilate(morph, kernel, iterations=3)             # fill in small holes
+
+        # Remove unconnected parts and only keep the horseman
+        _, thresh = cv2.threshold(morph, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)   # get binary image
+        num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(thresh)
+        min_size = 4500         # minimum size of connected component to keep
+        mask2 = np.zeros(thresh.shape, dtype=np.uint8)
+        for i in range(1, num_labels):
+            if stats[i, cv2.CC_STAT_AREA] >= min_size:
+                mask2[labels == i] = 255
+        result = cv2.bitwise_and(morph, morph, mask=mask2)
+
+        # kernel = np.ones((2, 2), np.uint8)
+        # mask = cv2.erode(mask, kernel, iterations=2)  # remove small isolated pixels
+
+        # cv2.imshow('Origin', frame)
+        # cv2.imshow('mask', mask)
+        # cv2.imshow('morph', morph)
+        cv2.imshow('result', result)
+        # cv2.waitKey(0)
+        if cv2.waitKey(1) == ord('q'):
+            break
+
+    cap.release()
+    cv2.destroyAllWindows()
+
+# run background subtraction
+def bgSubtraction():
+    for i in range(4):
+        #backgroundModel(i+1)
+        backgroundSub(i+1)
+
 if __name__ == '__main__':
+    # getCameraParam()          # task1
+    bgSubtraction()             # task2
     print('1')
 
