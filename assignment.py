@@ -342,11 +342,7 @@ def bgSubtraction():
 
 if __name__ == '__main__':
     # getCameraParam()          # task1
-    # bgSubtraction()             # task2
-    # print('1')
-    get_cam_rotation_matrices()
+    # bgSubtraction()           # task2
+    # get_cam_rotation_matrices()
     # get_cam_positions()
-    #set_voxel_positions(3, 3, 3)
-    # /*"world_width": 128,
-    # "world_height": 64,
-    # "world_depth": 128,
+    set_voxel_positions(3, 3, 3)
