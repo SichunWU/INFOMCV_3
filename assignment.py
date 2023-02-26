@@ -20,53 +20,39 @@ def generate_grid(width, depth):
 
 
 def set_voxel_positions(width, height, depth):
-    # Generates random voxel locations
-    # TODO: You need to calculate proper voxel arrays instead of random ones.
-    #foreground = [[] for n in range(4)]
-    cameraCalib = [[] for n in range(4)]
-    #print(foreground)
-    dataS = []
-    # for i in range(4):
-    #     foreground = cv2.imread('./data/cam{}/foreground.jpg'.format(i+1))
-    #     fs = cv2.FileStorage('./data/cam{}/config.xml'.format(i + 1), cv2.FILE_STORAGE_READ)
-    #     mtx = fs.getNode('mtx').mat()
-    #     dist = fs.getNode('dist').mat()
-    #     rvec = fs.getNode('rvec').mat()
-    #     tvec = fs.getNode('tvec').mat()
-    #
-    #     data = []
-    #     for x in range(width):
-    #         for y in range(height):
-    #             for z in range(depth):
-    #                 # if random.randint(0, 1000) < 5:
-    #                 #     data.append([x*block_size - width/2, y*block_size, z*block_size - depth/2])
-    #                 x3d = x #* 0.1
-    #                 y3d = y #* 0.1
-    #                 z3d = z #* 0.1
-    #                 point3d = np.array([[x3d, y3d, z3d]], dtype=np.float32)
-    #                 point2d, _ = cv2.projectPoints(point3d, rvec, tvec, mtx, dist)
-    #                 point2D = np.round(point2d[0]).astype(int)
-    #                 #print(point2D, foreground.shape)
-    #                 condition1 = (0 <= point2D[0][0]) & (point2D[0][0]< foreground.shape[1]).all()
-    #                 condition2 = (0 <= point2D[0][1]) & (point2D[0][1] < foreground.shape[0]).all()
-    #                 #print(condition1,condition2 )
-    #                 if (0 <= point2D[0][0] < foreground.shape[1]) and (0 <= point2D[0][1] < foreground.shape[0]):
-    #                     if foreground[point2D[0][1], point2D[0][0], 0] != 0:
-    #                         data.append(1)
-    #                     else:
-    #                         data.append(0)
-    #                 else:
-    #                     data.append(0)
-    #     dataS.append(data)
-    #     print(dataS)
+    cube_num = width * height * depth
+    flags = np.ones(cube_num)
+
     data0 = []
     for x in range(width):
         for y in range(height):
             for z in range(depth):
-                if random.randint(0, 1000) < 5:
-                    data0.append([x*block_size - width/2, y*block_size, z*block_size - depth/2])
-    print(data0)
-    return data0
+                data0.append([x*block_size - width/2, y*block_size, z*block_size - depth/2])
+
+    data0 = np.float32(data0)
+
+    for i in range(4):
+        foreground = cv2.imread('./data/cam{}/foreground.jpg'.format(i+1))
+        fs = cv2.FileStorage('./data/cam{}/config.xml'.format(i + 1), cv2.FILE_STORAGE_READ)
+        mtx = fs.getNode('mtx').mat()
+        dist = fs.getNode('dist').mat()
+        rvec = fs.getNode('rvec').mat()
+        tvec = fs.getNode('tvec').mat()
+
+        pts, jac = cv2.projectPoints(data0, rvec, tvec, mtx, dist)
+
+        pts = np.int32(pts)
+        for j in range(cube_num):
+            if foreground[pts[j][0][0]][pts[j][0][1]].sum() == 0:
+                flags[j] = 0   
+
+    print(flags.sum())
+    data = []
+    for i in range(cube_num):
+        if flags[i]:
+            data.append(data0[i])
+    
+    return data
 
 
 def get_cam_positions():
@@ -345,4 +331,4 @@ if __name__ == '__main__':
     # bgSubtraction()           # task2
     # get_cam_rotation_matrices()
     # get_cam_positions()
-    set_voxel_positions(3, 3, 3)
+    set_voxel_positions(128, 64, 128)

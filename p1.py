@@ -1,7 +1,6 @@
 import cv2
 import numpy as np
 import glob
-import win32api,win32con
 import time
 
 w = 8
