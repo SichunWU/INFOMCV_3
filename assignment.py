@@ -27,12 +27,13 @@ def set_voxel_positions(width, height, depth):
     for x in range(width):
         for y in range(height):
             for z in range(depth):
-                data0.append([x*block_size - width/2, y*block_size, z*block_size - depth/2])
+                data0.append([x, y, z])
+    print(data0)
 
     data0 = np.float32(data0)
 
     for i in range(4):
-        foreground = cv2.imread('./data/cam{}/foreground.jpg'.format(i+1))
+        foreground = cv2.imread('./data/cam{}/foreground.jpg'.format(i + 1))
         fs = cv2.FileStorage('./data/cam{}/config.xml'.format(i + 1), cv2.FILE_STORAGE_READ)
         mtx = fs.getNode('mtx').mat()
         dist = fs.getNode('dist').mat()
@@ -43,8 +44,22 @@ def set_voxel_positions(width, height, depth):
 
         pts = np.int32(pts)
         for j in range(cube_num):
-            if foreground[pts[j][0][0]][pts[j][0][1]].sum() == 0:
-                flags[j] = 0   
+            # try:
+            #     if foreground[pts[j][0][0]][pts[j][0][1]].sum() == 0:
+            #         flags[j] = 0
+            # except:
+            #     continue
+            try:
+                foreground[pts[j][0][0]][pts[j][0][1]][0] = 29
+                foreground[pts[j][0][0]][pts[j][0][1]][1] = 133
+                foreground[pts[j][0][0]][pts[j][0][1]][2] = 223   
+            except:
+                continue
+
+        cv2.imshow('Foreground Mask', foreground)
+        cv2.waitKey(0)
+
+    cv2.destroyAllWindows()
 
     print(flags.sum())
     data = []
@@ -52,7 +67,7 @@ def set_voxel_positions(width, height, depth):
         if flags[i]:
             data.append(data0[i])
     
-    return data
+    return data0
 
 
 def get_cam_positions():
@@ -139,7 +154,7 @@ def getExtrinsics(Cam):
     dist = fs.getNode('dist').mat()
 
     objp = np.zeros((w * h, 3), np.float32)
-    objp[:, :2] = np.mgrid[0:w, 0:h].T.reshape(-1, 2) * 115
+    objp[:, :2] = np.mgrid[0:w, 0:h].T.reshape(-1, 2)
 
     # get the extrinsic parameters
     retval, rvec, tvec = cv2.solvePnP(objectPoints=objp, imagePoints=imageCorners, cameraMatrix=mtx,
@@ -155,13 +170,10 @@ def getExtrinsics(Cam):
 
     # draw the X, Y, Z axes on the image
     img = cv2.imread('./data/cam{}/capture.jpg'.format(Cam))
-    worldPoints = np.float32([[0, 0, 0], [300, 0, 0], [0, 300, 0], [0, 0, 300]])
-    image_pts, _ = cv2.projectPoints(worldPoints, rvec, tvec, mtx, dist)
+    axis = np.float32([[5,0,0], [0,5,0], [0,0,5]])
+    axispts, jac = cv2.projectPoints(axis, rvec, tvec, mtx, dist)
 
-    image_pts = np.int32(image_pts).reshape(-1, 2)
-    img = cv2.line(img, tuple(image_pts[0]), tuple(image_pts[1]), (0, 0, 255), 1)  # X axis blue
-    img = cv2.line(img, tuple(image_pts[0]), tuple(image_pts[2]), (0, 255, 0), 1)  # Y axis green
-    img = cv2.line(img, tuple(image_pts[0]), tuple(image_pts[3]), (255, 0, 0), 1)  # Z axis red
+    p1.draw_axis(img, np.int32(imageCorners[0][0]), axispts)
     cv2.imwrite('./data/cam{}/captureXYZ.jpg'.format(Cam), img)
 
     cv2.imshow('capture', img)
@@ -331,4 +343,4 @@ if __name__ == '__main__':
     # bgSubtraction()           # task2
     # get_cam_rotation_matrices()
     # get_cam_positions()
-    set_voxel_positions(128, 64, 128)
+    set_voxel_positions(16, 8, 16)
