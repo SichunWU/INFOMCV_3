@@ -219,10 +219,10 @@ def draw_cube(img, imgpts, shadowpts):
     img = cv2.drawContours(img, [imgpts[:4]], -1, (29,133,223), -2)
 
     # Draw shadow
-    shadowpts = np.int32(shadowpts).reshape(-1, 2)
-    for i, j in zip(range(4), range(4, 8)):
-        img = cv2.line(img, tuple(shadowpts[i]), tuple(shadowpts[j]), (120, 120, 120), 2)
-    img = cv2.drawContours(img, [shadowpts[4:]], -1, (120, 120, 120), 2)
+    # shadowpts = np.int32(shadowpts).reshape(-1, 2)
+    # for i, j in zip(range(4), range(4, 8)):
+    #     img = cv2.line(img, tuple(shadowpts[i]), tuple(shadowpts[j]), (120, 120, 120), 2)
+    # img = cv2.drawContours(img, [shadowpts[4:]], -1, (120, 120, 120), 2)
 
     # Draw pillars
     for i, j in zip(range(4), range(4, 8)):
