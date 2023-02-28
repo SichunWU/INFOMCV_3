@@ -20,17 +20,21 @@ def generate_grid(width, depth):
 
 
 def set_voxel_positions(width, height, depth):
-    cube_num = width * height * depth
-    flags = np.ones(cube_num)
-
+    width = 16
+    height = 8
+    depth = 16
+    #cube_num = width * height * depth
+    #flags = np.ones((4, cube_num))
+    voxel_size = 0.2
     data0 = []
-    for x in range(width):
-        for y in range(height):
-            for z in range(depth):
+    for x in np.arange(0, width, voxel_size):
+        for y in np.arange(0, height, voxel_size):
+            for z in np.arange(0, depth, voxel_size):
                 data0.append([x, y, z])
-    print(data0)
 
+    flags = np.ones((4, len(data0)))
     data0 = np.float32(data0)
+    #print(len(data0))
 
     for i in range(4):
         foreground = cv2.imread('./data/cam{}/foreground.jpg'.format(i + 1))
@@ -43,31 +47,36 @@ def set_voxel_positions(width, height, depth):
         pts, jac = cv2.projectPoints(data0, rvec, tvec, mtx, dist)
 
         pts = np.int32(pts)
-        for j in range(cube_num):
-            # try:
-            #     if foreground[pts[j][0][0]][pts[j][0][1]].sum() == 0:
-            #         flags[j] = 0
-            # except:
-            #     continue
+        for j in range(len(data0)):    #cube_num
             try:
-                foreground[pts[j][0][0]][pts[j][0][1]][0] = 29
-                foreground[pts[j][0][0]][pts[j][0][1]][1] = 133
-                foreground[pts[j][0][0]][pts[j][0][1]][2] = 223   
+                if foreground[pts[j][0][1]][pts[j][0][0]].sum() == 0:
+                     flags[i][j] = 0
+                # foreground[pts[j][0][1]][pts[j][0][0]][0] = 29
+                # foreground[pts[j][0][1]][pts[j][0][0]][1]= 133
+                # foreground[pts[j][0][1]][pts[j][0][0]][2]= 223
             except:
+                print("Out of range!")
                 continue
 
-        cv2.imshow('Foreground Mask', foreground)
-        cv2.waitKey(0)
+        # cv2.imshow('Foreground Mask', foreground)
+        # cv2.waitKey(2000)
 
     cv2.destroyAllWindows()
 
-    print(flags.sum())
     data = []
-    for i in range(cube_num):
-        if flags[i]:
+    columnSum = flags.sum(axis=0)
+    #print(columnSum, len(columnSum))
+    for i in range(len(data0)):
+        if columnSum[i] == 4:
             data.append(data0[i])
-    
-    return data0
+
+    # rotate array -90 degree along the x-axis.
+    Rx = np.array([[1, 0, 0],
+                  [0, 0, 1],
+                  [0, -1, 0]])
+    dataR = [Rx.dot(p) for p in data]
+
+    return dataR
 
 
 def get_cam_positions():
@@ -81,9 +90,8 @@ def get_cam_positions():
         R, _ = cv2.Rodrigues(rvec)
         R_inv = R.T
         position = -R_inv.dot(tvec)     # get camera position
-        size = 128.0
-        # get camera position in voxel space units, and swap the y and z coordinates
-        Vposition = np.array([position[0] / size, position[2] / size, position[1] / size * 2.0])
+        # get camera position in voxel space units(swap the y and z coordinates)
+        Vposition = np.array([position[0], position[2], position[1] * 2.0])
         cam_position.append(Vposition)
 
     return cam_position
