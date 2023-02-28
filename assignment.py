@@ -180,28 +180,6 @@ def getExtrinsics(Cam):
     axis = np.float32([[5,0,0], [0,5,0], [0,0,5]])
     axispts, jac = cv2.projectPoints(axis, rvec, tvec, mtx, dist)
 
-    data0 = []
-    for x in range(8):
-        for y in range(8):
-            for z in range(8):
-                data0.append([x, y, z])
-    data0 = np.float32(data0)
-
-    print(data0)
-
-    orjpts, jac = cv2.projectPoints(data0, rvec, tvec, mtx, dist)
-    
-    orjpts = np.int32(orjpts)
-    print(orjpts)
-
-    for i in range(512):
-        try:
-            img[orjpts[i][0][0]][orjpts[i][0][1]][0] = 255
-            img[orjpts[i][0][0]][orjpts[i][0][1]][1] = 0
-            img[orjpts[i][0][0]][orjpts[i][0][1]][2] = 255  
-        except:
-            continue
-
     p1.draw_axis(img, np.int32(imageCorners[0][0]), axispts)
     cv2.imwrite('./data/cam{}/captureXYZ.jpg'.format(Cam), img)
 
@@ -368,10 +346,8 @@ def bgSubtraction():
         backgroundSub(i+1)
 
 if __name__ == '__main__':
-    for i in range(4):
-        getExtrinsics(i+1)
     # getCameraParam()          # task1
     # bgSubtraction()           # task2
     # get_cam_rotation_matrices()
     # get_cam_positions()
-    # set_voxel_positions(16, 8, 16)
+    set_voxel_positions(16, 8, 16)
