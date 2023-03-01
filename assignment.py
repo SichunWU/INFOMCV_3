@@ -51,9 +51,6 @@ def set_voxel_positions(width, height, depth):
             try:
                 if foreground[pts[j][0][1]][pts[j][0][0]].sum() == 0:
                      flags[i][j] = 0
-                # foreground[pts[j][0][1]][pts[j][0][0]][0] = 29
-                # foreground[pts[j][0][1]][pts[j][0][0]][1]= 133
-                # foreground[pts[j][0][1]][pts[j][0][0]][2]= 223
             except:
                 print("Out of range!")
                 continue
@@ -260,33 +257,46 @@ def backgroundModel(Cam):
     cv2.destroyAllWindows()
 
 # background subtraction (this does not work)
-def backgroundSub2(Cam):
+def backgroundSub2(Cam, threshold_h, threshold_s, threshold_v):
     cap = cv2.VideoCapture('./data/cam{}/video.avi'.format(Cam))
     background = cv2.imread('./data/cam{}/background.jpg'.format(Cam))
+
+    hsv_bg = cv2.cvtColor(background, cv2.COLOR_BGR2HSV)
 
     while True:
         ret, frame = cap.read()
         if not ret:
             break
+        
+        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
-        sub = cv2.absdiff(frame, background)            # subtract the background mode
-        hsvSub = cv2.cvtColor(sub, cv2.COLOR_BGR2HSV)   # convert the image to HSV color space
+        # Calculate the difference in each channel
+        diff_h = cv2.absdiff(hsv[:, :, 0], hsv_bg[:, :, 0])
+        diff_s = cv2.absdiff(hsv[:, :, 1], hsv_bg[:, :, 1])
+        diff_v = cv2.absdiff(hsv[:, :, 2], hsv_bg[:, :, 2])
 
-        h, s, v = cv2.split(hsvSub)                     # split the HSV image into its three channels
+        # Threshold the differences
 
-        # Apply a threshold to each channel
-        _, hMask = cv2.threshold(h, 200, 225, cv2.THRESH_BINARY)
-        _, sMask = cv2.threshold(s, 88, 225, cv2.THRESH_BINARY)
-        _, vMask = cv2.threshold(v, 220, 225, cv2.THRESH_BINARY)
 
-        # get the final foreground segmentation mask
-        mask = cv2.bitwise_or(hMask, cv2.bitwise_or(sMask, vMask))
+        mask_h = cv2.threshold(diff_h, threshold_h, 255, cv2.THRESH_BINARY)[1]
+        mask_s = cv2.threshold(diff_s, threshold_s, 255, cv2.THRESH_BINARY)[1]
+        mask_v = cv2.threshold(diff_v, threshold_v, 255, cv2.THRESH_BINARY)[1]
 
-        # kernel = np.ones((2, 2), np.uint8)
-        # mask = cv2.erode(mask, kernel, iterations=3)    # remove small isolated white pixels
-        # kernel = np.ones((2, 2), np.uint8)
-        # mask = cv2.dilate(mask, kernel, iterations=1)   # fill in small isolated black pixels
-        # mask = cv2.medianBlur(mask, 5)
+        # Combine the masks
+        mask = cv2.bitwise_or(mask_h, mask_s)
+        mask = cv2.bitwise_or(mask, mask_v)
+
+        # Apply morphology operations to remove noise
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+        mask = cv2.erode(mask, kernel, iterations=2)
+        mask = cv2.dilate(mask, kernel, iterations=2)
+
+        # Apply the mask to the foreground image
+        result = cv2.bitwise_and(frame, frame, mask=mask)
+
+        # Set the foreground pixels to white (255) and the background pixels to black (0)
+        result[mask == 255] = (255, 255, 255)
+        result[mask == 0] = (0, 0, 0)
 
         cv2.imshow('Foreground Mask', mask)
         cv2.waitKey(0)
@@ -340,14 +350,17 @@ def backgroundSub(Cam):
     cv2.destroyAllWindows()
 
 # run background subtraction
-def bgSubtraction():
+def bgSubtraction(): 
     for i in range(4):
         # backgroundModel(i+1)
         backgroundSub(i+1)
 
 if __name__ == '__main__':
+    for i in range(4):
+        backgroundSub2(i+1, 100, 100, 120)
+
     # getCameraParam()          # task1
     # bgSubtraction()           # task2
     # get_cam_rotation_matrices()
     # get_cam_positions()
-    set_voxel_positions(16, 8, 16)
+    # set_voxel_positions(16, 8, 16)
