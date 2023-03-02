@@ -12,11 +12,13 @@ h = 6
 def generate_grid(width, depth):
     # Generates the floor grid locations
     # You don't need to edit this function
+    width = 80
+    depth = 100
     data, colors = [], []
     for x in range(width):
         for z in range(depth):
             data.append([x*block_size - width/2, -block_size, z*block_size - depth/2])
-            colors.append([1.0, 1.0, 1.0] if (x+z) % 2 == 0 else [0, 0, 0])
+            colors.append([1.0, 1.0, 1.0] if (x+z) % 2 == 0 else [0.5, 0.5, 0.5])
     return data, colors
 
 
@@ -28,10 +30,12 @@ def set_voxel_positions(width, height, depth):
     #flags = np.ones((4, cube_num))
     voxel_size = 0.2
     data0 = []
+    colors = []
     for x in np.arange(0, width, voxel_size):
         for y in np.arange(0, height, voxel_size):
             for z in np.arange(0, depth, voxel_size):
                 data0.append([x, y, z])
+                colors.append([x / width, z / depth, y / height])
 
     flags = np.ones((4, len(data0)))
     data0 = np.float32(data0)
@@ -62,18 +66,20 @@ def set_voxel_positions(width, height, depth):
     cv2.destroyAllWindows()
 
     data = []
+    color = []
     columnSum = flags.sum(axis=0)
     #print(columnSum, len(columnSum))
     for i in range(len(data0)):
         if columnSum[i] == 4:
             data.append(data0[i])
+            color.append(colors[i])
 
     # rotate array -90 degree along the x-axis.
     Rx = np.array([[1, 0, 0],
                   [0, 0, 1],
                   [0, -1, 0]])
     dataR = [Rx.dot(p) for p in data]
-    colors = []
+    # colors = []
     # Generates random voxel locations
     # # TODO: You need to calculate proper voxel arrays instead of random ones.
     # data, colors = [], []
@@ -83,8 +89,7 @@ def set_voxel_positions(width, height, depth):
     #             if random.randint(0, 1000) < 5:
     #                 data.append([x*block_size - width/2, y*block_size, z*block_size - depth/2])
     #                 colors.append([x / width, z / depth, y / height])
-    return dataR, colors
-
+    return dataR, color
 
 
 def get_cam_positions():
@@ -100,9 +105,10 @@ def get_cam_positions():
         position = -R_inv.dot(tvec)     # get camera position
         # get camera position in voxel space units(swap the y and z coordinates)
         Vposition = np.array([position[0], position[2], position[1] * 2.0])
+        #Vposition /= 1.8
         cam_position.append(Vposition)
-
-    return cam_position
+        color = [[1.0, 0, 0], [0, 1.0, 0], [0, 0, 1.0], [1.0, 1.0, 0]]
+    return cam_position, color
 
 
 def get_cam_rotation_matrices():
