@@ -37,7 +37,6 @@ def set_voxel_positions(width, height, depth, bg, pressNum):
         for y in np.arange(0, height, voxel_size):
             for z in np.arange(0, depth, voxel_size):
                 data0.append([x, y, z])
-                colors.append([x / width, z / depth, y / height])
 
     # flags to save data and 2D coordinates
     flags = [[[[], []] for _ in range(len(data0))] for _ in range(4)]
@@ -45,6 +44,7 @@ def set_voxel_positions(width, height, depth, bg, pressNum):
     # first frame, compute lookup table
     if (pressNum == 0):
         for i in range(4):
+            clip = cv2.imread('./data/cam{}/video.jpg'.format(i+1))
             foreground = bg[i]
             fs = cv2.FileStorage('./data/cam{}/config.xml'.format(i + 1), cv2.FILE_STORAGE_READ)
             mtx = fs.getNode('mtx').mat()
@@ -57,11 +57,12 @@ def set_voxel_positions(width, height, depth, bg, pressNum):
 
             for j in range(len(data0)):
                 try:
-
                     if foreground[pts[j][0][1]][pts[j][0][0]].sum() == 0:   # if point falls into the background
                         flags[i][j] = [0, [pts[j][0][1], pts[j][0][0]]]
                     else:
                         flags[i][j] = [1, [pts[j][0][1], pts[j][0][0]]]
+                    colors.append(clip[pts[j][0][1]][pts[j][0][0]]/256)
+                        
                 except:
                     print("Out of range!")
                     continue
