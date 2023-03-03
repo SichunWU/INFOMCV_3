@@ -82,7 +82,7 @@ def set_voxel_positions(width, height, depth, bg, pressNum):
                 points.append([change[0][j], change[1][j]])
             # delete the duplicated points
             uniPoints = [list(t) for t in set(tuple(element) for element in points)]
-            # change the flag of the
+            # change the flag of the different points
             for j in range(len(uniPoints)):
                 try:
                     index = coordDict[(uniPoints[j][0], uniPoints[j][1])]
