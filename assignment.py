@@ -25,7 +25,6 @@ def generate_grid(width, depth):
 
 def set_voxel_positions(width, height, depth, bg, pressNum):
     # Generates random voxel locations
-
     global prevForeground, lookup
     width = 16
     height = 8
