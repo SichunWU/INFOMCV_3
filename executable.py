@@ -1,3 +1,4 @@
+import cv2
 import glm
 import glfw
 from engine.base.program import get_linked_program
@@ -14,7 +15,7 @@ cube, hdrbuffer, blurbuffer, lastPosX, lastPosY = None, None, None, None, None
 firstTime = True
 window_width, window_height = config['window_width'], config['window_height']
 camera = Camera(glm.vec3(0, 100, 0), pitch=-90, yaw=0, speed=40)
-
+pressNum = 0
 
 def draw_objs(obj, program, perspective, light_pos, texture, normal, specular, depth):
     program.use()
@@ -183,9 +184,16 @@ def key_callback(window, key, scancode, action, mods):
     if key == glfw.KEY_ESCAPE and action == glfw.PRESS:
         glfw.set_window_should_close(window, glfw.TRUE)
     if key == glfw.KEY_G and action == glfw.PRESS:
-        global cube
-        positions, colors = set_voxel_positions(config['world_width'], config['world_height'], config['world_width'])
+        global cube, pressNum
+        bg1 = cv2.imread('./data/cam{}/frames/foreground{}.jpg'.format(1, pressNum))
+        bg2 = cv2.imread('./data/cam{}/frames/foreground{}.jpg'.format(2, pressNum))
+        bg3 = cv2.imread('./data/cam{}/frames/foreground{}.jpg'.format(3, pressNum))
+        bg4 = cv2.imread('./data/cam{}/frames/foreground{}.jpg'.format(4, pressNum))
+        bg = [bg1, bg2, bg3, bg4]
+        positions, colors = set_voxel_positions(config['world_width'], config['world_height'], config['world_width'], bg, pressNum)
         cube.set_multiple_positions(positions, colors)
+        # camera.rotate(-20, 0)
+        pressNum += 1
 
 
 def mouse_move(win, pos_x, pos_y):

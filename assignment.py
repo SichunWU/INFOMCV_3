@@ -4,10 +4,11 @@ import numpy as np
 import cv2
 import p1
 
-
 block_size = 1.0
 w = 8
 h = 6
+prevForeground = [None for _ in range(4)]
+lookup = None
 
 def generate_grid(width, depth):
     # Generates the floor grid locations
@@ -22,12 +23,14 @@ def generate_grid(width, depth):
     return data, colors
 
 
-def set_voxel_positions(width, height, depth):
+def set_voxel_positions(width, height, depth, bg, pressNum):
+    # Generates random voxel locations
+
+    global prevForeground, lookup
     width = 16
     height = 8
     depth = 16
-    #cube_num = width * height * depth
-    #flags = np.ones((4, cube_num))
+
     voxel_size = 0.2
     data0 = []
     colors = []
@@ -37,38 +40,71 @@ def set_voxel_positions(width, height, depth):
                 data0.append([x, y, z])
                 colors.append([x / width, z / depth, y / height])
 
-    flags = np.ones((4, len(data0)))
+    # flags to save data and 2D coordinates
+    flags = [[[[], []] for _ in range(len(data0))] for _ in range(4)]
     data0 = np.float32(data0)
-    #print(len(data0))
+    # first frame, compute lookup table
+    if (pressNum == 0):
+        for i in range(4):
+            foreground = bg[i]
+            fs = cv2.FileStorage('./data/cam{}/config.xml'.format(i + 1), cv2.FILE_STORAGE_READ)
+            mtx = fs.getNode('mtx').mat()
+            dist = fs.getNode('dist').mat()
+            rvec = fs.getNode('rvec').mat()
+            tvec = fs.getNode('tvec').mat()
 
-    for i in range(4):
-        foreground = cv2.imread('./data/cam{}/foreground.jpg'.format(i + 1))
-        fs = cv2.FileStorage('./data/cam{}/config.xml'.format(i + 1), cv2.FILE_STORAGE_READ)
-        mtx = fs.getNode('mtx').mat()
-        dist = fs.getNode('dist').mat()
-        rvec = fs.getNode('rvec').mat()
-        tvec = fs.getNode('tvec').mat()
+            pts, jac = cv2.projectPoints(data0, rvec, tvec, mtx, dist)
+            pts = np.int32(pts)
 
-        pts, jac = cv2.projectPoints(data0, rvec, tvec, mtx, dist)
+            for j in range(len(data0)):
+                try:
 
-        pts = np.int32(pts)
-        for j in range(len(data0)):    #cube_num
-            try:
-                if foreground[pts[j][0][1]][pts[j][0][0]].sum() == 0:
-                     flags[i][j] = 0
-            except:
-                print("Out of range!")
-                continue
-
-        # cv2.imshow('Foreground Mask', foreground)
-        # cv2.waitKey(2000)
+                    if foreground[pts[j][0][1]][pts[j][0][0]].sum() == 0:   # if point falls into the background
+                        flags[i][j] = [0, [pts[j][0][1], pts[j][0][0]]]
+                    else:
+                        flags[i][j] = [1, [pts[j][0][1], pts[j][0][0]]]
+                except:
+                    print("Out of range!")
+                    continue
+            prevForeground[i] = foreground
+        lookup = flags
+    # the rest frames
+    else:
+        for i in range(4):
+            foreground = bg[i]
+            # create a dictionary for the coordinate
+            coordDict = {tuple(lu[1]): ind for ind, lu in enumerate(lookup[i])}
+            # change in the images compared to the previous one
+            diff = cv2.bitwise_xor(foreground, prevForeground[i])
+            change = np.where(diff > 0)
+            points = []
+            for j in range(len(change[0])):
+                points.append([change[0][j], change[1][j]])
+            # delete the duplicated points
+            uniPoints = [list(t) for t in set(tuple(element) for element in points)]
+            # change the flag of the
+            for j in range(len(uniPoints)):
+                try:
+                    index = coordDict[(uniPoints[j][0], uniPoints[j][1])]
+                    if lookup[i][index][0] == 1:
+                        lookup[i][index][0] = 0
+                    else:
+                        lookup[i][index][0] = 1
+                except:
+                    continue
+            prevForeground[i] = foreground
 
     cv2.destroyAllWindows()
 
     data = []
     color = []
-    columnSum = flags.sum(axis=0)
-    #print(columnSum, len(columnSum))
+    columnSum = np.zeros(len(data0))
+
+    for i in range(len(data0)):
+        for j in range(len(lookup)):
+            columnSum[i] += lookup[j][i][0]
+
+    # if voxels in all views are visible, show it on the screen
     for i in range(len(data0)):
         if columnSum[i] == 4:
             data.append(data0[i])
@@ -79,16 +115,7 @@ def set_voxel_positions(width, height, depth):
                   [0, 0, 1],
                   [0, -1, 0]])
     dataR = [Rx.dot(p) for p in data]
-    # colors = []
-    # Generates random voxel locations
-    # # TODO: You need to calculate proper voxel arrays instead of random ones.
-    # data, colors = [], []
-    # for x in range(width):
-    #     for y in range(height):
-    #         for z in range(depth):
-    #             if random.randint(0, 1000) < 5:
-    #                 data.append([x*block_size - width/2, y*block_size, z*block_size - depth/2])
-    #                 colors.append([x / width, z / depth, y / height])
+
     return dataR, color
 
 
@@ -327,6 +354,7 @@ def backgroundSub(Cam):
     grayBG = cv2.cvtColor(background, cv2.COLOR_BGR2GRAY)
 
     cap = cv2.VideoCapture('./data/cam{}/video.avi'.format(Cam))
+    framNum = 0
     while True:
         ret, frame = cap.read()
         if not ret:
@@ -354,17 +382,15 @@ def backgroundSub(Cam):
         # kernel = np.ones((2, 2), np.uint8)
         # mask = cv2.erode(mask, kernel, iterations=2)  # remove small isolated pixels
 
-        # cv2.imshow('Origin', frame)
-        # cv2.imshow('mask', mask)
-        # cv2.imshow('morph', morph)
         cv2.imshow('result', result)
-        cv2.imwrite('./data/cam{}/foreground.jpg'.format(Cam), result)
-        # cv2.waitKey(0)
-        if cv2.waitKey(1) == ord('q'):
-            break
-
+        cv2.imwrite('./data/cam{}/frames/foreground{}.jpg'.format(Cam, framNum), result)
+        cv2.waitKey(20)
+        # if cv2.waitKey(1) == ord('q'):
+        #     break
+        framNum += 1
     cap.release()
     cv2.destroyAllWindows()
+
 
 # run background subtraction
 def bgSubtraction(): 
@@ -373,9 +399,15 @@ def bgSubtraction():
         backgroundSub(i+1)
 
 if __name__ == '__main__':
-    for i in range(4):
-        backgroundSub2(i+1, 100, 100, 120)
-
+    # for i in range(4):
+    #      backgroundSub2(i+1, 100, 100, 120)
+    coord_array = [[0, [10, 20]], [1, [50, 100]], [0, [100, 300]], [2, [200, 150]], [3, [300, 400]]]
+    coord_dict = {tuple(coord[1]): i for i, coord in enumerate(coord_array)}
+    print(coord_dict)
+    # lookup the index of [200, 150]
+    index = coord_dict[(200, 150)]
+    flags = [[1, []] for _ in range(10) for _ in range(4)]
+    print(flags)  # output: 3
     # getCameraParam()          # task1
     # bgSubtraction()           # task2
     # get_cam_rotation_matrices()
