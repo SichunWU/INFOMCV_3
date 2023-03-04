@@ -1,6 +1,10 @@
 import cv2
 import glm
 import glfw
+import pymesh as pymesh
+import trimesh
+from scipy.spatial import Delaunay, ConvexHull
+
 from engine.base.program import get_linked_program
 from engine.renderable.model import Model
 from engine.buffer.texture import *
@@ -10,6 +14,8 @@ from engine.effect.bloom import Bloom
 from assignment import set_voxel_positions, generate_grid, get_cam_positions, get_cam_rotation_matrices
 from engine.camera import Camera
 from engine.config import config
+import open3d as o3d
+import numpy as np
 
 cube, hdrbuffer, blurbuffer, lastPosX, lastPosY = None, None, None, None, None
 firstTime = True
@@ -192,7 +198,6 @@ def key_callback(window, key, scancode, action, mods):
         bg = [bg1, bg2, bg3, bg4]
         positions, colors = set_voxel_positions(config['world_width'], config['world_height'], config['world_width'], bg, pressNum)
         cube.set_multiple_positions(positions, colors)
-        # camera.rotate(-20, 0)
         pressNum += 1
 
 
