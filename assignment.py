@@ -378,7 +378,7 @@ def backgroundSub(Cam):
         result = cv2.bitwise_and(morph, morph, mask=mask2)
 
         kernel = np.ones((2, 2), np.uint8)
-        mask = cv2.erode(mask, kernel, iterations=2)  # remove small isolated pixels
+        result = cv2.erode(result, kernel, iterations=2)  # remove small isolated pixels
 
         cv2.imshow('result', result)
         cv2.imwrite('./data/cam{}/frames/foreground{}.jpg'.format(Cam, framNum), result)
