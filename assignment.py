@@ -3,12 +3,50 @@ import random
 import numpy as np
 import cv2
 import p1
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+
+from skimage import measure
 
 block_size = 1.0
 w = 8
 h = 6
 prevForeground = [None for _ in range(4)]
 lookup = None
+
+def draw_mesh(positions):
+    voxel = np.int32(np.array(positions) * 5)
+    
+    width = np.max(voxel[:, 0]) - np.min(voxel[:, 0])
+    depth = np.max(voxel[:, 1]) - np.min(voxel[:, 1])
+    height = np.max(voxel[:, 2]) - np.min(voxel[:, 2])
+
+    grid = np.zeros((width+1, height+1, depth+1), dtype=bool)
+
+    print(grid.shape)
+
+    for i in range(len(voxel)):
+        grid[voxel[i][0] - np.min(voxel[:, 0])][voxel[i][2] - np.min(voxel[:, 2])][voxel[i][1] - np.min(voxel[:, 1])] = True
+
+    # Use marching cubes to obtain the surface mesh of these ellipsoids
+    verts, faces, normals, values = measure.marching_cubes(grid, 0)
+
+    # Display resulting triangular mesh using Matplotlib. This can also be done
+    # with mayavi (see skimage.measure.marching_cubes docstring).
+    fig = plt.figure(figsize=(15, 15))
+    ax = fig.add_subplot(111, projection='3d')
+
+    # Fancy indexing: `verts[faces]` to generate a collection of triangles
+    mesh = Poly3DCollection(verts[faces])
+    mesh.set_edgecolor('k')
+    ax.add_collection3d(mesh)
+
+    ax.set_xlim(0, 2 * width)  
+    ax.set_ylim(0, 2 * height)  
+    ax.set_zlim(0, 2 * depth)  
+
+    plt.tight_layout()
+    plt.show()
 
 def generate_grid(width, depth):
     # Generates the floor grid locations

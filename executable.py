@@ -7,7 +7,7 @@ from engine.buffer.texture import *
 from engine.buffer.hdrbuffer import HDRBuffer
 from engine.buffer.blurbuffer import BlurBuffer
 from engine.effect.bloom import Bloom
-from assignment import set_voxel_positions, generate_grid, get_cam_positions, get_cam_rotation_matrices
+from assignment import draw_mesh, set_voxel_positions, generate_grid, get_cam_positions, get_cam_rotation_matrices
 from engine.camera import Camera
 from engine.config import config
 
@@ -179,7 +179,6 @@ def resize_callback(window, w, h):
         blurbuffer.delete()
         blurbuffer.create(window_width_px, window_height_px)
 
-
 def key_callback(window, key, scancode, action, mods):
     if key == glfw.KEY_ESCAPE and action == glfw.PRESS:
         glfw.set_window_should_close(window, glfw.TRUE)
@@ -191,7 +190,9 @@ def key_callback(window, key, scancode, action, mods):
         bg4 = cv2.imread('./data/cam{}/frames/foreground{}.jpg'.format(4, pressNum))
         bg = [bg1, bg2, bg3, bg4]
         positions, colors = set_voxel_positions(config['world_width'], config['world_height'], config['world_width'], bg, pressNum)
-        cube.set_multiple_positions(positions, colors)
+        #Draw the mesh of the foreground scene
+        draw_mesh(positions)
+        # cube.set_multiple_positions(positions, colors)
         # camera.rotate(-20, 0)
         pressNum += 1
 
