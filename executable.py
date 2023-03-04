@@ -1,6 +1,7 @@
 import cv2
 import glm
 import glfw
+
 from engine.base.program import get_linked_program
 from engine.renderable.model import Model
 from engine.buffer.texture import *
