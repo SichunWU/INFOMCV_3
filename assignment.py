@@ -3,10 +3,6 @@ import random
 import numpy as np
 import cv2
 import p1
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d.art3d import Poly3DCollection
-
-from skimage import measure
 
 block_size = 1.0
 w = 8
@@ -14,45 +10,11 @@ h = 6
 prevForeground = [None for _ in range(4)]
 lookup = None
 
-def draw_mesh(positions):
-    voxel = np.int32(np.array(positions) * 5)
-    
-    width = np.max(voxel[:, 0]) - np.min(voxel[:, 0])
-    depth = np.max(voxel[:, 1]) - np.min(voxel[:, 1])
-    height = np.max(voxel[:, 2]) - np.min(voxel[:, 2])
-
-    grid = np.zeros((width+1, height+1, depth+1), dtype=bool)
-
-    print(grid.shape)
-
-    for i in range(len(voxel)):
-        grid[voxel[i][0] - np.min(voxel[:, 0])][voxel[i][2] - np.min(voxel[:, 2])][voxel[i][1] - np.min(voxel[:, 1])] = True
-
-    # Use marching cubes to obtain the surface mesh of these ellipsoids
-    verts, faces, normals, values = measure.marching_cubes(grid, 0)
-
-    # Display resulting triangular mesh using Matplotlib. This can also be done
-    # with mayavi (see skimage.measure.marching_cubes docstring).
-    fig = plt.figure(figsize=(15, 15))
-    ax = fig.add_subplot(111, projection='3d')
-
-    # Fancy indexing: `verts[faces]` to generate a collection of triangles
-    mesh = Poly3DCollection(verts[faces])
-    mesh.set_edgecolor('k')
-    ax.add_collection3d(mesh)
-
-    ax.set_xlim(0, 2 * width)  
-    ax.set_ylim(0, 2 * height)  
-    ax.set_zlim(0, 2 * depth)  
-
-    plt.tight_layout()
-    plt.show()
-
 def generate_grid(width, depth):
     # Generates the floor grid locations
     # You don't need to edit this function
-    width = 160
-    depth = 200
+    width = 80
+    depth = 100
     data, colors = [], []
     for x in range(width):
         for z in range(depth):
@@ -82,6 +44,7 @@ def set_voxel_positions(width, height, depth, bg, pressNum):
     # first frame, compute lookup table
     if (pressNum == 0):
         for i in range(4):
+            clip = cv2.imread('./data/cam{}/video.jpg'.format(i+1))
             foreground = bg[i]
             fs = cv2.FileStorage('./data/cam{}/config.xml'.format(i + 1), cv2.FILE_STORAGE_READ)
             mtx = fs.getNode('mtx').mat()
@@ -98,8 +61,8 @@ def set_voxel_positions(width, height, depth, bg, pressNum):
                         flags[i][j] = [0, [pts[j][0][1], pts[j][0][0]]]
                     else:
                         flags[i][j] = [1, [pts[j][0][1], pts[j][0][0]]]
-                    #colors.append(clip[pts[j][0][1]][pts[j][0][0]]/256)
-
+                    colors.append(clip[pts[j][0][1]][pts[j][0][0]]/256)
+                        
                 except:
                     print("Out of range!")
                     continue
@@ -134,27 +97,26 @@ def set_voxel_positions(width, height, depth, bg, pressNum):
     cv2.destroyAllWindows()
 
     data = []
+    color = []
     columnSum = np.zeros(len(data0))
 
     for i in range(len(data0)):
         for j in range(len(lookup)):
             columnSum[i] += lookup[j][i][0]
 
-    clip = cv2.imread('./data/cam{}/video.jpg'.format(2))
     # if voxels in all views are visible, show it on the screen
     for i in range(len(data0)):
         if columnSum[i] == 4:
             data.append(data0[i])
-            #color.append(colorsVox[i])
-            colors.append(clip[lookup[1][i][1][0]][lookup[1][i][1][1]]/256)
+            color.append(colors[i])
 
     # rotate array -90 degree along the x-axis.
     Rx = np.array([[1, 0, 0],
                   [0, 0, 1],
                   [0, -1, 0]])
     dataR = [Rx.dot(p) for p in data]
-    dataR = [np.multiply(DR, 5) for DR in dataR]
-    return dataR, colors
+
+    return dataR, color
 
 
 def get_cam_positions():
@@ -169,7 +131,7 @@ def get_cam_positions():
         R_inv = R.T
         position = -R_inv.dot(tvec)     # get camera position
         # get camera position in voxel space units(swap the y and z coordinates)
-        Vposition = np.array([position[0]*3, position[2]*3, position[1] * 3])
+        Vposition = np.array([position[0], position[2], position[1] * 2.0])
         #Vposition /= 1.8
         cam_position.append(Vposition)
         color = [[1.0, 0, 0], [0, 1.0, 0], [0, 0, 1.0], [1.0, 1.0, 0]]
@@ -417,8 +379,8 @@ def backgroundSub(Cam):
                 mask2[labels == i] = 255
         result = cv2.bitwise_and(morph, morph, mask=mask2)
 
-        kernel = np.ones((2, 2), np.uint8)
-        result = cv2.erode(result, kernel, iterations=2)  # remove small isolated pixels
+        # kernel = np.ones((2, 2), np.uint8)
+        # mask = cv2.erode(mask, kernel, iterations=2)  # remove small isolated pixels
 
         cv2.imshow('result', result)
         cv2.imwrite('./data/cam{}/frames/foreground{}.jpg'.format(Cam, framNum), result)
@@ -437,11 +399,17 @@ def bgSubtraction():
         backgroundSub(i+1)
 
 if __name__ == '__main__':
-    for i in range(4):
-         backgroundSub2(i+1, 100, 100, 120)
+    # for i in range(4):
+    #      backgroundSub2(i+1, 100, 100, 120)
+    coord_array = [[0, [10, 20]], [1, [50, 100]], [0, [100, 300]], [2, [200, 150]], [3, [300, 400]]]
+    coord_dict = {tuple(coord[1]): i for i, coord in enumerate(coord_array)}
+    print(coord_dict)
+    # lookup the index of [200, 150]
+    index = coord_dict[(200, 150)]
+    flags = [[1, []] for _ in range(10) for _ in range(4)]
+    print(flags)  # output: 3
     # getCameraParam()          # task1
     # bgSubtraction()           # task2
     # get_cam_rotation_matrices()
     # get_cam_positions()
     # set_voxel_positions(16, 8, 16)
-
