@@ -1,9 +1,6 @@
 import cv2
 import glm
 import glfw
-import pymesh as pymesh
-import trimesh
-from scipy.spatial import Delaunay, ConvexHull
 
 from engine.base.program import get_linked_program
 from engine.renderable.model import Model
@@ -14,8 +11,6 @@ from engine.effect.bloom import Bloom
 from assignment import set_voxel_positions, generate_grid, get_cam_positions, get_cam_rotation_matrices
 from engine.camera import Camera
 from engine.config import config
-import open3d as o3d
-import numpy as np
 
 cube, hdrbuffer, blurbuffer, lastPosX, lastPosY = None, None, None, None, None
 firstTime = True
