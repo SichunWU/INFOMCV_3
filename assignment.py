@@ -302,51 +302,41 @@ def backgroundModel(Cam):
 
 # background subtraction (this does not work)
 def backgroundSub2(Cam, threshold_h, threshold_s, threshold_v):
-    cap = cv2.VideoCapture('./data/cam{}/video.avi'.format(Cam))
     background = cv2.imread('./data/cam{}/background.jpg'.format(Cam))
 
     hsv_bg = cv2.cvtColor(background, cv2.COLOR_BGR2HSV)
 
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            break
-        
-        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    frame = cv2.imread('./data/cam{}/video.jpg'.format(Cam))
+    
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
-        # Calculate the difference in each channel
-        diff_h = cv2.absdiff(hsv[:, :, 0], hsv_bg[:, :, 0])
-        diff_s = cv2.absdiff(hsv[:, :, 1], hsv_bg[:, :, 1])
-        diff_v = cv2.absdiff(hsv[:, :, 2], hsv_bg[:, :, 2])
+    # Calculate the difference in each channel
+    diff_h = cv2.absdiff(hsv[:, :, 0], hsv_bg[:, :, 0])
+    diff_s = cv2.absdiff(hsv[:, :, 1], hsv_bg[:, :, 1])
+    diff_v = cv2.absdiff(hsv[:, :, 2], hsv_bg[:, :, 2])
 
-        # Threshold the differences
+    # Threshold the differences
+    mask_h = cv2.threshold(diff_h, threshold_h, 255, cv2.THRESH_BINARY)[1]
+    mask_s = cv2.threshold(diff_s, threshold_s, 255, cv2.THRESH_BINARY)[1]
+    mask_v = cv2.threshold(diff_v, threshold_v, 255, cv2.THRESH_BINARY)[1]
 
+    # Combine the masks
+    mask = cv2.bitwise_or(mask_h, mask_s)
+    mask = cv2.bitwise_or(mask, mask_v)
 
-        mask_h = cv2.threshold(diff_h, threshold_h, 255, cv2.THRESH_BINARY)[1]
-        mask_s = cv2.threshold(diff_s, threshold_s, 255, cv2.THRESH_BINARY)[1]
-        mask_v = cv2.threshold(diff_v, threshold_v, 255, cv2.THRESH_BINARY)[1]
+    # Apply morphology operations to remove noise
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+    mask = cv2.erode(mask, kernel, iterations=2)
+    mask = cv2.dilate(mask, kernel, iterations=3)
 
-        # Combine the masks
-        mask = cv2.bitwise_or(mask_h, mask_s)
-        mask = cv2.bitwise_or(mask, mask_v)
+    # Apply the mask to the foreground image
+    result = cv2.bitwise_and(frame, frame, mask=mask)
 
-        # Apply morphology operations to remove noise
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-        mask = cv2.erode(mask, kernel, iterations=2)
-        mask = cv2.dilate(mask, kernel, iterations=2)
+    # Set the foreground pixels to white (255) and the background pixels to black (0)
+    result[mask == 255] = (255, 255, 255)
+    result[mask == 0] = (0, 0, 0)
 
-        # Apply the mask to the foreground image
-        result = cv2.bitwise_and(frame, frame, mask=mask)
-
-        # Set the foreground pixels to white (255) and the background pixels to black (0)
-        result[mask == 255] = (255, 255, 255)
-        result[mask == 0] = (0, 0, 0)
-
-        cv2.imshow('Foreground Mask', mask)
-        cv2.waitKey(0)
-
-    cap.release()
-    cv2.destroyAllWindows()
+    cv2.imwrite('./data/cam{}/hsv.jpg'.format(Cam), result)
 
 # background subtraction
 def backgroundSub(Cam):
@@ -400,7 +390,7 @@ def bgSubtraction():
 
 if __name__ == '__main__':
     # for i in range(4):
-    #      backgroundSub2(i+1, 100, 100, 120)
+    #      backgroundSub2(i+1, 110, 180, 40)
     coord_array = [[0, [10, 20]], [1, [50, 100]], [0, [100, 300]], [2, [200, 150]], [3, [300, 400]]]
     coord_dict = {tuple(coord[1]): i for i, coord in enumerate(coord_array)}
     print(coord_dict)
@@ -408,8 +398,8 @@ if __name__ == '__main__':
     index = coord_dict[(200, 150)]
     flags = [[1, []] for _ in range(10) for _ in range(4)]
     print(flags)  # output: 3
-    # getCameraParam()          # task1
-    # bgSubtraction()           # task2
-    # get_cam_rotation_matrices()
-    # get_cam_positions()
-    # set_voxel_positions(16, 8, 16)
+    # # getCameraParam()          # task1
+    # # bgSubtraction()           # task2
+    # # get_cam_rotation_matrices()
+    # # get_cam_positions()
+    # # set_voxel_positions(16, 8, 16)
