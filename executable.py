@@ -186,8 +186,7 @@ def resize_callback(window, w, h):
         blurbuffer.create(window_width_px, window_height_px)
 
 def draw_mesh(positions):
-    voxel = np.int32(np.array(positions) * 5)
-    
+    voxel = np.int32(positions)
     width = np.max(voxel[:, 0]) - np.min(voxel[:, 0])
     depth = np.max(voxel[:, 1]) - np.min(voxel[:, 1])
     height = np.max(voxel[:, 2]) - np.min(voxel[:, 2])
@@ -232,8 +231,7 @@ def key_callback(window, key, scancode, action, mods):
         bg4 = cv2.imread('./data/cam{}/frames/foreground{}.jpg'.format(4, pressNum))
         bg = [bg1, bg2, bg3, bg4]
         positions, colors = set_voxel_positions(config['world_width'], config['world_height'], config['world_width'], bg, pressNum)
-        positions_mesh = [np.divide(DR, 5) for DR in positions]
-        draw_mesh(positions_mesh)
+        draw_mesh(positions)
         cube.set_multiple_positions(positions, colors)
         # camera.rotate(-20, 0)
         pressNum += 1
