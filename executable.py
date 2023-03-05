@@ -186,8 +186,7 @@ def resize_callback(window, w, h):
         blurbuffer.create(window_width_px, window_height_px)
 
 def draw_mesh(positions):
-    voxel = np.int32(np.array(positions) * 5)
-    
+    voxel = np.int32(positions)
     width = np.max(voxel[:, 0]) - np.min(voxel[:, 0])
     depth = np.max(voxel[:, 1]) - np.min(voxel[:, 1])
     height = np.max(voxel[:, 2]) - np.min(voxel[:, 2])
