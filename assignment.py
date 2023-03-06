@@ -4,11 +4,51 @@ import numpy as np
 import cv2
 import p1
 
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+
+from skimage import measure
+
 block_size = 1.0
 w = 8
 h = 6
 prevForeground = [None for _ in range(4)]
 lookup = None
+
+def draw_mesh(positions):
+    voxel = np.int32(positions)
+    width = np.max(voxel[:, 0]) - np.min(voxel[:, 0])
+    depth = np.max(voxel[:, 1]) - np.min(voxel[:, 1])
+    height = np.max(voxel[:, 2]) - np.min(voxel[:, 2])
+
+    grid = np.zeros((width+1, height+1, depth+1), dtype=bool)
+
+    print(grid.shape)
+
+    for i in range(len(voxel)):
+        grid[voxel[i][0] - np.min(voxel[:, 0])][1 - (voxel[i][2] - np.min(voxel[:, 2]))][voxel[i][1] - np.min(voxel[:, 1])] = True
+
+    # Use marching cubes to obtain the surface mesh of these ellipsoids
+    verts, faces, normals, values = measure.marching_cubes(grid, 0)
+
+    # Display resulting triangular mesh using Matplotlib. This can also be done
+    # with mayavi (see skimage.measure.marching_cubes docstring).
+    fig = plt.figure(figsize=(15, 15))
+    ax = fig.add_subplot(111, projection='3d')
+
+    # Fancy indexing: `verts[faces]` to generate a collection of triangles
+    mesh = Poly3DCollection(verts[faces])
+    mesh.set_edgecolor('k')
+    ax.add_collection3d(mesh)
+
+    ax.set_xlim(0, int(1.5 * width))  
+    ax.set_ylim(0, int(1.5 * height))  
+    ax.set_zlim(0, int(1.5 * depth))  
+
+    ax.set_aspect('equal')
+
+    plt.tight_layout()
+    plt.show()
 
 def generate_grid(width, depth):
     # Generates the floor grid locations
@@ -386,11 +426,17 @@ def bgSubtraction():
         # backgroundModel(i+1)
         backgroundSub(i+1)
 
+from engine.config import config
+
+window_width, window_height = config['window_width'], config['window_height']
+
 if __name__ == '__main__':
-    for i in range(4):
-         backgroundSub2(i+1, 110, 180, 40)
-    # getCameraParam()          # task1
-    # bgSubtraction()           # task2
-    # get_cam_rotation_matrices()
-    # get_cam_positions()
-    # set_voxel_positions(16, 8, 16)
+    # for i in range(4):
+    #      backgroundSub2(i+1, 110, 180, 40)
+    bg1 = cv2.imread('./data/cam{}/frames/foreground{}.jpg'.format(1, 0))
+    bg2 = cv2.imread('./data/cam{}/frames/foreground{}.jpg'.format(2, 0))
+    bg3 = cv2.imread('./data/cam{}/frames/foreground{}.jpg'.format(3, 0))
+    bg4 = cv2.imread('./data/cam{}/frames/foreground{}.jpg'.format(4, 0))
+    bg = [bg1, bg2, bg3, bg4]
+    positions, colors = set_voxel_positions(config['world_width'], config['world_height'], config['world_width'], bg, 0)
+    draw_mesh(positions)
