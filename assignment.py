@@ -170,7 +170,6 @@ def get_cam_positions():
         position = -R_inv.dot(tvec)     # get camera position
         # get camera position in voxel space units(swap the y and z coordinates)
         Vposition = np.array([position[0]*3, position[2]*3, position[1] * 3])
-        #Vposition /= 1.8
         cam_position.append(Vposition)
         color = [[1.0, 0, 0], [0, 1.0, 0], [0, 0, 1.0], [1.0, 1.0, 0]]
     return cam_position, color

@@ -191,7 +191,6 @@ def key_callback(window, key, scancode, action, mods):
         bg = [bg1, bg2, bg3, bg4]
         positions, colors = set_voxel_positions(config['world_width'], config['world_height'], config['world_width'], bg, pressNum)
         cube.set_multiple_positions(positions, colors)
-        # camera.rotate(-20, 0)
         pressNum += 1
 
 
