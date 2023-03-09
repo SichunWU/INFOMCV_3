@@ -184,11 +184,17 @@ def key_callback(window, key, scancode, action, mods):
         glfw.set_window_should_close(window, glfw.TRUE)
     if key == glfw.KEY_G and action == glfw.PRESS:
         global cube, pressNum
-        bg1 = cv2.imread('./data/cam{}/frames/foreground{}.jpg'.format(1, pressNum))
-        bg2 = cv2.imread('./data/cam{}/frames/foreground{}.jpg'.format(2, pressNum))
-        bg3 = cv2.imread('./data/cam{}/frames/foreground{}.jpg'.format(3, pressNum))
-        bg4 = cv2.imread('./data/cam{}/frames/foreground{}.jpg'.format(4, pressNum))
-        bg = [bg1, bg2, bg3, bg4]
+        # bg1 = cv2.imread('./data/cam{}/frames/foreground{}.jpg'.format(1, pressNum))
+        # bg2 = cv2.imread('./data/cam{}/frames/foreground{}.jpg'.format(2, pressNum))
+        # bg3 = cv2.imread('./data/cam{}/frames/foreground{}.jpg'.format(3, pressNum))
+        # bg4 = cv2.imread('./data/cam{}/frames/foreground{}.jpg'.format(4, pressNum))
+        # bg = [bg1, bg2, bg3, bg4]
+
+        bg = ['./4persons/video/Take30.54389819.foreground.jpg',
+              './4persons/video/Take30.59624062.foreground.jpg',
+              './4persons/video/Take30.60703227.foreground.jpg',
+              './4persons/video/Take30.62474905.foreground.jpg']
+
         positions, colors = set_voxel_positions(config['world_width'], config['world_height'], config['world_width'], bg, pressNum)
         cube.set_multiple_positions(positions, colors)
         pressNum += 1

@@ -1,3 +1,5 @@
+import os
+
 import glm
 import random
 import numpy as np
@@ -53,7 +55,7 @@ def draw_mesh(positions):
 def generate_grid(width, depth):
     # Generates the floor grid locations
     # You don't need to edit this function
-    width = 160
+    width = 220
     depth = 200
     data, colors = [], []
     for x in range(width):
@@ -66,16 +68,16 @@ def generate_grid(width, depth):
 def set_voxel_positions(width, height, depth, bg, pressNum):
     # Generates random voxel locations
     global prevForeground, lookup
-    width = 16
-    height = 8
-    depth = 16
+    width = 25
+    height = 25
+    depth = 25
 
-    voxel_size = 0.2
+    voxel_size = 0.4
     data0 = []
     colors = []
-    for x in np.arange(0, width, voxel_size):
-        for y in np.arange(0, height, voxel_size):
-            for z in np.arange(0, depth, voxel_size):
+    for x in np.arange(-3, width-3, voxel_size):
+        for y in np.arange(-2, height-2, voxel_size):
+            for z in np.arange(-3, depth-3, voxel_size):
                 data0.append([x, y, z])
 
     # flags to save data and 2D coordinates
@@ -84,8 +86,12 @@ def set_voxel_positions(width, height, depth, bg, pressNum):
     # first frame, compute lookup table
     if (pressNum == 0):
         for i in range(4):
-            foreground = bg[i]
-            fs = cv2.FileStorage('./data/cam{}/config.xml'.format(i + 1), cv2.FILE_STORAGE_READ)
+            # foreground = bg[i]
+            foreground = cv2.imread(bg[i])
+            # fs = cv2.FileStorage('./data/cam{}/config.xml'.format(i + 1), cv2.FILE_STORAGE_READ)
+            newpath = bg[i].replace('video/Take30', 'extrinsics/Take25')
+            newpath = newpath[:-14] + 'config.xml'
+            fs = cv2.FileStorage(newpath, cv2.FILE_STORAGE_READ)
             mtx = fs.getNode('mtx').mat()
             dist = fs.getNode('dist').mat()
             rvec = fs.getNode('rvec').mat()
@@ -95,21 +101,26 @@ def set_voxel_positions(width, height, depth, bg, pressNum):
             pts = np.int32(pts)
 
             for j in range(len(data0)):
+                # cv2.circle(foreground, tuple([pts[j][0][0], pts[j][0][1]]), 1, (0, 0, 255), -1)
                 try:
+                    # print(foreground[pts[j][0][1]][pts[j][0][0]].sum())
                     if foreground[pts[j][0][1]][pts[j][0][0]].sum() == 0:   # if point falls into the background
                         flags[i][j] = [0, [pts[j][0][1], pts[j][0][0]]]
                     else:
                         flags[i][j] = [1, [pts[j][0][1], pts[j][0][0]]]
-                    #colors.append(clip[pts[j][0][1]][pts[j][0][0]]/256)
                 except:
-                    print("Out of range!")
+                    # print("Out of range!")
+                    flags[i][j] = [0, [pts[j][0][1], pts[j][0][0]]]
                     continue
             prevForeground[i] = foreground
+            # cv2.imshow('foreground', foreground)
+            # cv2.waitKey(0)
         lookup = flags
     # the rest frames
     else:
         for i in range(4):
-            foreground = bg[i]
+            # foreground = bg[i]
+            foreground = cv2.imread(bg[i])
             # create a dictionary for the coordinate
             coordDict = {tuple(lu[1]): ind for ind, lu in enumerate(lookup[i])}
             # change in the images compared to the previous one
@@ -133,10 +144,12 @@ def set_voxel_positions(width, height, depth, bg, pressNum):
             prevForeground[i] = foreground
 
     cv2.destroyAllWindows()
-
+    #print(lookup)
     data = []
     columnSum = np.zeros(len(data0))
-    clip = cv2.imread('./data/cam{}/video.jpg'.format(2))
+    colorpath = './4persons/video/Take30.59624062.video.jpg'
+    #clip = cv2.imread('./data/cam{}/video.jpg'.format(2))
+    clip = cv2.imread(colorpath)
     for i in range(len(data0)):
         for j in range(len(lookup)):
             columnSum[i] += lookup[j][i][0]
@@ -223,19 +236,25 @@ def capture(Cam):
     cv2.destroyAllWindows()
 
 # get the extrinsic parameters
-def getExtrinsics(Cam):
+def getExtrinsics(path1, path2):
     # get the image points (only run once)
     # cap = cv2.VideoCapture('./data/cam{}/checkerboard.avi'.format(Cam))
+    # cap = cv2.VideoCapture(path1)
     # ret, frame = cap.read()
-    # filename = f'./data/cam{Cam}/capture.jpg'
+    # # filename = f'./data/cam{Cam}/capture.jpg'
+    # spl = path1.split('/')
+    # splName = spl[3][:15]
+    # filename = f'./4persons/extrinsics/{splName}.jpg'
     # cv2.imwrite(filename, frame)
     # p1.firstRun(filename)
 
     # load the image points and intrinsics
-    fs = cv2.FileStorage('./data/cam{}/imageCorners.xml'.format(Cam), cv2.FILE_STORAGE_READ)
+    # fs = cv2.FileStorage('./data/cam{}/imageCorners.xml'.format(Cam), cv2.FILE_STORAGE_READ)
+    fs = cv2.FileStorage(path2, cv2.FILE_STORAGE_READ)
     data = fs.getNode('corners').mat()
     imageCorners = np.array(data)
-    fs = cv2.FileStorage('./data/cam{}/intrinsics.xml'.format(Cam), cv2.FILE_STORAGE_READ)
+    # fs = cv2.FileStorage('./data/cam{}/intrinsics.xml'.format(Cam), cv2.FILE_STORAGE_READ)
+    fs = cv2.FileStorage('./data/cam{}/intrinsics.xml'.format(1), cv2.FILE_STORAGE_READ)
     mtx = fs.getNode('mtx').mat()
     dist = fs.getNode('dist').mat()
 
@@ -246,23 +265,30 @@ def getExtrinsics(Cam):
     retval, rvec, tvec = cv2.solvePnP(objp, imageCorners, mtx, dist)
     R, _ = cv2.Rodrigues(rvec)  # change rotation vector to matrix
     T, _ = cv2.Rodrigues(tvec)  # change translation vector to matrix
-
-    fs = cv2.FileStorage('./data/cam{}/config.xml'.format(Cam), cv2.FILE_STORAGE_WRITE)
+    newfile = path2[:-16] + 'config.xml'
+    # fs = cv2.FileStorage('./data/cam{}/config.xml'.format(Cam), cv2.FILE_STORAGE_WRITE)
+    fs = cv2.FileStorage(newfile, cv2.FILE_STORAGE_WRITE)
     fs.write("mtx", mtx)
     fs.write("dist", dist)
     fs.write("rvec", rvec)
     fs.write("tvec", tvec)
 
     # draw the X, Y, Z axes on the image
-    img = cv2.imread('./data/cam{}/capture.jpg'.format(Cam))
+    spl = path2.split('/')
+    splName = spl[3][:15]
+    newfileDraw = f'./4persons/extrinsics/{splName}.jpg'
+    # img = cv2.imread('./data/cam{}/capture.jpg'.format(Cam))
+    img = cv2.imread(newfileDraw)
+
     axis = np.float32([[5,0,0], [0,5,0], [0,0,5]])
     axispts, jac = cv2.projectPoints(axis, rvec, tvec, mtx, dist)
-
     p1.draw_axis(img, np.int32(imageCorners[0][0]), axispts)
-    cv2.imwrite('./data/cam{}/captureXYZ.jpg'.format(Cam), img)
+    newfileSave = path2[:-16] + 'capture.jpg'
+    # cv2.imwrite('./data/cam{}/captureXYZ.jpg'.format(Cam), img)
+    cv2.imwrite(newfileSave, img)
 
     cv2.imshow('capture', img)
-    cv2.waitKey(1000)
+    cv2.waitKey(0)
     cv2.destroyAllWindows()
 
 
@@ -311,8 +337,9 @@ def getCameraParam():
 
 
 # create a background model by averaging 50 frames
-def backgroundModel(Cam):
-    cap = cv2.VideoCapture('./data/cam{}/background.avi'.format(Cam))
+def backgroundModel(path):
+    #cap = cv2.VideoCapture('./data/cam{}/background.avi'.format(Cam))
+    cap = cv2.VideoCapture(path)
     frams = None
     i = 0
 
@@ -328,22 +355,24 @@ def backgroundModel(Cam):
             frams += gray.astype('float')
         i += 1
 
-    print(i)
     avgFrame = (frams/i).astype('uint8')
 
     cv2.imshow('Background Model', avgFrame)
-    cv2.imwrite('./data/cam{}/background.jpg'.format(Cam), avgFrame)
+    newfile = path[:-18] + 'background.jpg'
+    cv2.imwrite(newfile, avgFrame)
+    #cv2.imwrite('./data/cam{}/background.jpg'.format(Cam), avgFrame)
     cv2.waitKey(0)
     cap.release()
     cv2.destroyAllWindows()
 
 # background subtraction (this does not work)
-def backgroundSub2(Cam, threshold_h, threshold_s, threshold_v):
-    background = cv2.imread('./data/cam{}/background.jpg'.format(Cam))
-
+def backgroundSub2(path1, path2, threshold_h, threshold_s, threshold_v):
+    # background = cv2.imread('./data/cam{}/background.jpg'.format(Cam))
+    background = cv2.imread(path1)
     hsv_bg = cv2.cvtColor(background, cv2.COLOR_BGR2HSV)
 
-    frame = cv2.imread('./data/cam{}/video.jpg'.format(Cam))
+    # frame = cv2.imread('./data/cam{}/video.jpg'.format(Cam))
+    frame = cv2.imread(path2)
     
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
@@ -373,48 +402,62 @@ def backgroundSub2(Cam, threshold_h, threshold_s, threshold_v):
     result[mask == 255] = (255, 255, 255)
     result[mask == 0] = (0, 0, 0)
 
-    cv2.imwrite('./data/cam{}/hsv.jpg'.format(Cam), result)
+    cv2.imshow('result', result)
+    newfile = path2[:-9] + 'foreground.jpg'
+    cv2.imwrite(newfile, result)
+    cv2.waitKey(0)
+
+
+    # cv2.imwrite('./data/cam{}/hsv.jpg'.format(Cam), result)
 
 # background subtraction
-def backgroundSub(Cam):
-    background = cv2.imread('./data/cam{}/background.jpg'.format(Cam))
+def backgroundSub(path1, path2, time):
+    # background = cv2.imread('./data/cam{}/background.jpg'.format(Cam))
+    background = cv2.imread(path1)
     grayBG = cv2.cvtColor(background, cv2.COLOR_BGR2GRAY)
 
-    cap = cv2.VideoCapture('./data/cam{}/video.avi'.format(Cam))
-    framNum = 0
+    # cap = cv2.VideoCapture('./data/cam{}/video.avi'.format(Cam))
+    cap = cv2.VideoCapture(path2)
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    frameNum = int(time * fps)
+
+    fn = 0
     while True:
         ret, frame = cap.read()
         if not ret:
             break
+        if fn == frameNum:
+            grayFrame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            sub = cv2.absdiff(grayFrame, grayBG)                        # subtract the background
+            # _, mask = cv2.threshold(sub, 50, 225, cv2.THRESH_BINARY)    # create a mask of the foreground
+            _, mask = cv2.threshold(sub, 27, 225, cv2.THRESH_BINARY)  # create a mask of the foreground
 
-        grayFrame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        sub = cv2.absdiff(grayFrame, grayBG)                        # subtract the background
-        _, mask = cv2.threshold(sub, 50, 225, cv2.THRESH_BINARY)    # create a mask of the foreground
+            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2, 2))
+            morph = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)      # remove noise
+            kernel = np.ones((3, 3), np.uint8)
+            morph = cv2.dilate(morph, kernel, iterations=3)             # fill in small holes
 
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2, 2))
-        morph = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)      # remove noise
-        kernel = np.ones((3, 3), np.uint8)
-        morph = cv2.dilate(morph, kernel, iterations=3)             # fill in small holes
+            # Remove unconnected parts and only keep the horseman
+            _, thresh = cv2.threshold(morph, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)   # get binary image
+            num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(thresh)
+            min_size = 4500         # minimum size of connected component to keep
+            mask2 = np.zeros(thresh.shape, dtype=np.uint8)
+            for i in range(1, num_labels):
+                if stats[i, cv2.CC_STAT_AREA] >= min_size:
+                    mask2[labels == i] = 255
+            result = cv2.bitwise_and(morph, morph, mask=mask2)
 
-        # Remove unconnected parts and only keep the horseman
-        _, thresh = cv2.threshold(morph, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)   # get binary image
-        num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(thresh)
-        min_size = 4500         # minimum size of connected component to keep
-        mask2 = np.zeros(thresh.shape, dtype=np.uint8)
-        for i in range(1, num_labels):
-            if stats[i, cv2.CC_STAT_AREA] >= min_size:
-                mask2[labels == i] = 255
-        result = cv2.bitwise_and(morph, morph, mask=mask2)
+            kernel = np.ones((2, 2), np.uint8)
+            result = cv2.erode(result, kernel, iterations=2)  # remove small isolated pixels
 
-        kernel = np.ones((2, 2), np.uint8)
-        result = cv2.erode(result, kernel, iterations=2)  # remove small isolated pixels
-
-        cv2.imshow('result', result)
-        cv2.imwrite('./data/cam{}/frames/foreground{}.jpg'.format(Cam, framNum), result)
-        cv2.waitKey(20)
-        # if cv2.waitKey(1) == ord('q'):
-        #     break
-        framNum += 1
+            cv2.imshow('result', result)
+            newfile = path2[:-18] + 'foreground.jpg'
+            # cv2.imwrite('./data/cam{}/frames/foreground{}.jpg'.format(Cam, framNum), result)
+            cv2.imwrite(newfile, result)
+            cv2.waitKey(20)
+            # if cv2.waitKey(1) == ord('q'):
+            #     break
+        fn += 1
     cap.release()
     cv2.destroyAllWindows()
 
@@ -430,12 +473,12 @@ from engine.config import config
 window_width, window_height = config['window_width'], config['window_height']
 
 if __name__ == '__main__':
-    # for i in range(4):
-    #      backgroundSub2(i+1, 110, 180, 40)
-    bg1 = cv2.imread('./data/cam{}/frames/foreground{}.jpg'.format(1, 0))
-    bg2 = cv2.imread('./data/cam{}/frames/foreground{}.jpg'.format(2, 0))
-    bg3 = cv2.imread('./data/cam{}/frames/foreground{}.jpg'.format(3, 0))
-    bg4 = cv2.imread('./data/cam{}/frames/foreground{}.jpg'.format(4, 0))
-    bg = [bg1, bg2, bg3, bg4]
-    positions, colors = set_voxel_positions(config['world_width'], config['world_height'], config['world_width'], bg, 0)
-    draw_mesh(positions)
+    for i in range(4):
+         backgroundSub2(i+1, 110, 180, 40)
+    # bg1 = cv2.imread('./data/cam{}/frames/foreground{}.jpg'.format(1, 0))
+    # bg2 = cv2.imread('./data/cam{}/frames/foreground{}.jpg'.format(2, 0))
+    # bg3 = cv2.imread('./data/cam{}/frames/foreground{}.jpg'.format(3, 0))
+    # bg4 = cv2.imread('./data/cam{}/frames/foreground{}.jpg'.format(4, 0))
+    # bg = [bg1, bg2, bg3, bg4]
+    # positions, colors = set_voxel_positions(config['world_width'], config['world_height'], config['world_width'], bg, 0)
+    # draw_mesh(positions)

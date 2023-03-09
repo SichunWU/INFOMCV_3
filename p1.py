@@ -77,8 +77,8 @@ def subcoordinates(img):
 
     # save the corners into a file
     corners = np.array(res, np.float32)
-    # print(corners)
-    newfile = fName.replace('capture.jpg', 'imageCorners.xml')
+    #newfile = fName.replace('capture.jpg', 'imageCorners.xml')
+    newfile = fName[:-3] + 'imageCorners.xml'
     fs = cv2.FileStorage(newfile, cv2.FILE_STORAGE_WRITE)
     fs.write("corners", corners)
 
@@ -117,20 +117,32 @@ def firstRun(filename):
         # Find the chess board corners
         ret, corners = cv2.findChessboardCorners(gray, (w, h), None)
         # If found, save the information
-        if ret == True:
-            # Finding sub-pixel corners based on the original corners
-            corners2 = cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
-            objpoints.append(objp)
-            imgpoints.append(corners2)
-            # Draw and save the corners
-            cv2.drawChessboardCorners(img, (w, h), corners2, ret)
-            #cv2.imwrite("./ChessboardCornersImg/Run1/image{}.jpg".format(imgNum), img)
-            cv2.namedWindow('findCorners', cv2.WINDOW_NORMAL)
-            cv2.resizeWindow('findCorners', 640, 480)
-            cv2.imshow('findCorners', img)
-            cv2.waitKey(200)
-            imgNum += 1
-        else:
+        if ret == True or ret == False:
+        #     # Finding sub-pixel corners based on the original corners
+        #     # corners2 = cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
+        #     objpoints.append(objp)
+        #     imgpoints.append(corners)
+        #     # cv2.drawChessboardCorners(img, (w, h), corners, ret)
+        #
+        #     # save the corners into a file
+        #     corners = np.array(corners, np.float32)
+        #     newfile = fName[:-3] + 'imageCorners.xml'
+        #     fs = cv2.FileStorage(newfile, cv2.FILE_STORAGE_WRITE)
+        #     fs.write("corners", corners)
+        #
+        #     # Draw the corners
+        #     corners = np.int32(corners)
+        #     corner_points = corners.reshape(-1, 2)
+        #     for point in corner_points:
+        #         cv2.circle(img, tuple(point), 1, (0, 0, 255), -1)
+        #
+        #     #cv2.imwrite("./ChessboardCornersImg/Run1/image{}.jpg".format(imgNum), img)
+        #     cv2.namedWindow('findCorners', cv2.WINDOW_NORMAL)
+        #     cv2.resizeWindow('findCorners', 640, 480)
+        #     cv2.imshow('findCorners', img)
+        #     cv2.waitKey(0)
+        #     imgNum += 1
+        # else:
             if i == 0:
                 # win32api.MessageBox(0, "If detect corners fail, please choose 4 corners clockwise, "
                 #                       "starting from the top-left.","Notice", win32con.MB_OK)
