@@ -1,6 +1,9 @@
 import cv2
 import glm
 import glfw
+import numpy as np
+
+import p3
 from engine.base.program import get_linked_program
 from engine.renderable.model import Model
 from engine.buffer.texture import *
@@ -190,14 +193,29 @@ def key_callback(window, key, scancode, action, mods):
         # bg4 = cv2.imread('./data/cam{}/frames/foreground{}.jpg'.format(4, pressNum))
         # bg = [bg1, bg2, bg3, bg4]
 
-        bg = ['./4persons/video/Take30.54389819.foreground.jpg',
-              './4persons/video/Take30.59624062.foreground.jpg',
-              './4persons/video/Take30.60703227.foreground.jpg',
-              './4persons/video/Take30.62474905.foreground.jpg']
+        bg = [f'./4persons/video/Take30.54389819.foreground{pressNum}.jpg',
+              f'./4persons/video/Take30.59624062.foreground{pressNum}.jpg',
+              f'./4persons/video/Take30.60703227.foreground{pressNum}.jpg',
+              f'./4persons/video/Take30.62474905.foreground{pressNum}.jpg']
 
-        positions, colors = set_voxel_positions(config['world_width'], config['world_height'], config['world_width'], bg, pressNum)
-        cube.set_multiple_positions(positions, colors)
-        pressNum += 1
+        # positions, colors = set_voxel_positions(config['world_width'], config['world_height'], config['world_width'], bg, pressNum)
+        try:
+            pos = p3.loadCoord(pressNum)
+            Rx = np.array([[1, 0, 0],
+                           [0, 0, 1],
+                           [0, -1, 0]])
+            positions = [Rx.dot(p) for p in pos]
+            positions = [np.multiply(DR, 5) for DR in positions]
+            colors = []
+            for p in positions:
+                colors.append([p[0] / 25, p[2] / 25, p[1] / 25])
+
+            cube.set_multiple_positions(positions, colors)
+
+            p3.knn(pressNum)
+            pressNum += 100
+        except:
+            pass
 
 
 def mouse_move(win, pos_x, pos_y):

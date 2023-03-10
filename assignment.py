@@ -1,15 +1,17 @@
 import os
-
 import glm
 import random
 import numpy as np
 import cv2
 import p1
+import p3
 
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 from skimage import measure
+
+
 
 block_size = 1.0
 w = 8
@@ -52,6 +54,23 @@ def draw_mesh(positions):
     plt.tight_layout()
     plt.show()
 
+def saveTable(lookup):
+    newfile = './4persons/video/lookupTable.xml'
+    fs = cv2.FileStorage(newfile, cv2.FILE_STORAGE_WRITE)
+    for i in range(4):
+        flag = np.array([x[0] for x in lookup[i]])
+        coord = np.array([x[1] for x in lookup[i]])
+        fs.write("flag", flag)
+        fs.write("coord", coord)
+    fs.release()
+
+def saveCoord(coord, path):
+    path = path[0][43:-4]
+    newfile = './4persons/video/voxelCoords' + path + '.xml'
+    fs = cv2.FileStorage(newfile, cv2.FILE_STORAGE_WRITE)
+    fs.write("coord", np.array(coord))
+    fs.release()
+
 def generate_grid(width, depth):
     # Generates the floor grid locations
     # You don't need to edit this function
@@ -84,13 +103,13 @@ def set_voxel_positions(width, height, depth, bg, pressNum):
     flags = [[[[], []] for _ in range(len(data0))] for _ in range(4)]
     data0 = np.float32(data0)
     # first frame, compute lookup table
-    if (pressNum == 0):
+    if (pressNum <= 2726 ):
         for i in range(4):
             # foreground = bg[i]
             foreground = cv2.imread(bg[i])
             # fs = cv2.FileStorage('./data/cam{}/config.xml'.format(i + 1), cv2.FILE_STORAGE_READ)
             newpath = bg[i].replace('video/Take30', 'extrinsics/Take25')
-            newpath = newpath[:-14] + 'config.xml'
+            newpath = newpath[:38] + 'config.xml'
             fs = cv2.FileStorage(newpath, cv2.FILE_STORAGE_READ)
             mtx = fs.getNode('mtx').mat()
             dist = fs.getNode('dist').mat()
@@ -116,32 +135,33 @@ def set_voxel_positions(width, height, depth, bg, pressNum):
             # cv2.imshow('foreground', foreground)
             # cv2.waitKey(0)
         lookup = flags
+        #saveTable(lookup)
     # the rest frames
-    else:
-        for i in range(4):
-            # foreground = bg[i]
-            foreground = cv2.imread(bg[i])
-            # create a dictionary for the coordinate
-            coordDict = {tuple(lu[1]): ind for ind, lu in enumerate(lookup[i])}
-            # change in the images compared to the previous one
-            diff = cv2.bitwise_xor(foreground, prevForeground[i])
-            change = np.where(diff > 0)
-            points = []
-            for j in range(len(change[0])):
-                points.append([change[0][j], change[1][j]])
-            # delete the duplicated points
-            uniPoints = [list(t) for t in set(tuple(element) for element in points)]
-            # change the flag of the different points
-            for j in range(len(uniPoints)):
-                try:
-                    index = coordDict[(uniPoints[j][0], uniPoints[j][1])]
-                    if lookup[i][index][0] == 1:
-                        lookup[i][index][0] = 0
-                    else:
-                        lookup[i][index][0] = 1
-                except:
-                    continue
-            prevForeground[i] = foreground
+    # else:
+    #     for i in range(4):
+    #         # foreground = bg[i]
+    #         foreground = cv2.imread(bg[i])
+    #         # create a dictionary for the coordinate
+    #         coordDict = {tuple(lu[1]): ind for ind, lu in enumerate(lookup[i])}
+    #         # change in the images compared to the previous one
+    #         diff = cv2.bitwise_xor(foreground, prevForeground[i])
+    #         change = np.where(diff > 0)
+    #         points = []
+    #         for j in range(len(change[0])):
+    #             points.append([change[0][j], change[1][j]])
+    #         # delete the duplicated points
+    #         uniPoints = [list(t) for t in set(tuple(element) for element in points)]
+    #         # change the flag of the different points
+    #         for j in range(len(uniPoints)):
+    #             try:
+    #                 index = coordDict[(uniPoints[j][0], uniPoints[j][1])]
+    #                 if lookup[i][index][0] == 1:
+    #                     lookup[i][index][0] = 0
+    #                 else:
+    #                     lookup[i][index][0] = 1
+    #             except:
+    #                 continue
+    #         prevForeground[i] = foreground
 
     cv2.destroyAllWindows()
     #print(lookup)
@@ -161,6 +181,7 @@ def set_voxel_positions(width, height, depth, bg, pressNum):
             #color.append(colors[i])
             colors.append(clip[lookup[1][i][1][0]][lookup[1][i][1][1]] / 256)
 
+    saveCoord(data, bg)
     # rotate array -90 degree along the x-axis.
     Rx = np.array([[1, 0, 0],
                   [0, 0, 1],
@@ -421,12 +442,18 @@ def backgroundSub(path1, path2, time):
     fps = cap.get(cv2.CAP_PROP_FPS)
     frameNum = int(time * fps)
 
+    totalFrames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    capFrams = []
+    for i in range(0, totalFrames, 100):
+        capFrams.append(i)
+    print(capFrams)
+
     fn = 0
     while True:
         ret, frame = cap.read()
         if not ret:
             break
-        if fn == frameNum:
+        if fn in capFrams:
             grayFrame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             sub = cv2.absdiff(grayFrame, grayBG)                        # subtract the background
             # _, mask = cv2.threshold(sub, 50, 225, cv2.THRESH_BINARY)    # create a mask of the foreground
@@ -451,7 +478,7 @@ def backgroundSub(path1, path2, time):
             result = cv2.erode(result, kernel, iterations=2)  # remove small isolated pixels
 
             cv2.imshow('result', result)
-            newfile = path2[:-18] + 'foreground.jpg'
+            newfile = path2[:-18] + f'foreground{fn}.jpg'
             # cv2.imwrite('./data/cam{}/frames/foreground{}.jpg'.format(Cam, framNum), result)
             cv2.imwrite(newfile, result)
             cv2.waitKey(20)
