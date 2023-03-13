@@ -601,5 +601,4 @@ if __name__ == '__main__':
     # bg4 = cv2.imread('./data/cam{}/frames/foreground{}.jpg'.format(4, 0))
     # bg = [bg1, bg2, bg3, bg4]
     # positions, colors = set_voxel_positions(config['world_width'], config['world_height'], config['world_width'], bg, 0)
-
     # draw_mesh(positions)
