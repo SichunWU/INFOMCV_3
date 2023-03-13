@@ -167,5 +167,5 @@ if __name__ == "__main__":
           './4persons/video/Take30.59624062.foreground.jpg',
           './4persons/video/Take30.60703227.foreground.jpg',
           './4persons/video/Take30.62474905.foreground.jpg']
-    # assignment.set_voxel_positions(1, 1, 1, bg, 0)
+    assignment.set_voxel_positions(1, 1, 1, bg, 0)
 

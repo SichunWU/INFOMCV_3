@@ -198,17 +198,17 @@ def key_callback(window, key, scancode, action, mods):
               f'./4persons/video/Take30.60703227.foreground{pressNum}.jpg',
               f'./4persons/video/Take30.62474905.foreground{pressNum}.jpg']
 
-        # positions, colors = set_voxel_positions(config['world_width'], config['world_height'], config['world_width'], bg, pressNum)
+        positions, colors = set_voxel_positions(config['world_width'], config['world_height'], config['world_width'], bg, pressNum)
         try:
-            pos = p3.loadCoord(pressNum)
-            Rx = np.array([[1, 0, 0],
-                           [0, 0, 1],
-                           [0, -1, 0]])
-            positions = [Rx.dot(p) for p in pos]
-            positions = [np.multiply(DR, 5) for DR in positions]
-            colors = []
-            for p in positions:
-                colors.append([p[0] / 25, p[2] / 25, p[1] / 25])
+        #     pos = p3.loadCoord(pressNum)
+        #     Rx = np.array([[1, 0, 0],
+        #                    [0, 0, 1],
+        #                    [0, -1, 0]])
+        #     positions = [Rx.dot(p) for p in pos]
+        #     positions = [np.multiply(DR, 5) for DR in positions]
+        #     colors = []
+        #     for p in positions:
+        #         colors.append([p[0] / 25, p[2] / 25, p[1] / 25])
 
             cube.set_multiple_positions(positions, colors)
 

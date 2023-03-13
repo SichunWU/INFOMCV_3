@@ -11,13 +11,24 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 from skimage import measure
 
-
+camera_handles = []
+background_models = []
 
 block_size = 1.0
 w = 8
 h = 6
 prevForeground = [None for _ in range(4)]
 lookup = None
+
+path_bg = ["./4persons/background/Take26.54389819.20141124164130.avi",
+          "./4persons/background/Take26.59624062.20141124164130.avi",
+          "./4persons/background/Take26.60703227.20141124164130.avi",
+          "./4persons/background/Take26.62474905.20141124164130.avi"]
+
+path_video = ["./4persons/video/Take30.54389819.20141124164749.avi",
+         "./4persons/video/Take30.59624062.20141124164749.avi",
+         "./4persons/video/Take30.60703227.20141124164749.avi",
+         "./4persons/video/Take30.62474905.20141124164749.avi"]
 
 def draw_mesh(positions):
     voxel = np.int32(positions)
@@ -103,11 +114,43 @@ def set_voxel_positions(width, height, depth, bg, pressNum):
     flags = [[[[], []] for _ in range(len(data0))] for _ in range(4)]
     data0 = np.float32(data0)
     # first frame, compute lookup table
-    if (pressNum <= 2726 ):
+    if (pressNum <= 2726 ):     #total frame number
+    # if (pressNum == 0):
         for i in range(4):
-            # foreground = bg[i]
-            foreground = cv2.imread(bg[i])
-            # fs = cv2.FileStorage('./data/cam{}/config.xml'.format(i + 1), cv2.FILE_STORAGE_READ)
+            # foreground = cv2.imread(bg[i])
+
+            # train MOG2 on background video, remove shadows, default learning rate
+            background_models.append(cv2.createBackgroundSubtractorMOG2())
+            background_models[i].setShadowValue(0)
+
+            # open background.avi
+            camera_handle = cv2.VideoCapture(path_bg[i])
+            num_frames = int(camera_handle.get(cv2.CAP_PROP_FRAME_COUNT))
+
+            # train background model on each frame
+            for i_frame in range(num_frames):
+                ret, image = camera_handle.read()
+                if ret:
+                    background_models[i].apply(image)
+
+            # close background.avi
+            camera_handle.release()
+
+            # open video.avi
+            camera_handles.append(cv2.VideoCapture(path_video[i]))
+
+            fn = 0
+            while True:
+                # read frame
+                ret, image = camera_handles[i].read()
+                if fn == pressNum:
+                    # determine foreground
+                    foreground = background_subtraction(image, background_models[i])
+                    # cv2.imshow('foreground', foreground)
+                    # cv2.waitKey(20)
+                    break
+                fn += 1
+
             newpath = bg[i].replace('video/Take30', 'extrinsics/Take25')
             newpath = newpath[:38] + 'config.xml'
             fs = cv2.FileStorage(newpath, cv2.FILE_STORAGE_READ)
@@ -132,15 +175,40 @@ def set_voxel_positions(width, height, depth, bg, pressNum):
                     flags[i][j] = [0, [pts[j][0][1], pts[j][0][0]]]
                     continue
             prevForeground[i] = foreground
-            # cv2.imshow('foreground', foreground)
-            # cv2.waitKey(0)
         lookup = flags
         #saveTable(lookup)
-    # the rest frames
+    # the rest frames, XOR result not fully correct
     # else:
     #     for i in range(4):
-    #         # foreground = bg[i]
-    #         foreground = cv2.imread(bg[i])
+    #         # train MOG2 on background video, remove shadows, default learning rate
+    #         background_models.append(cv2.createBackgroundSubtractorMOG2())
+    #         background_models[i].setShadowValue(0)
+    #         # open background.avi
+    #         camera_handle = cv2.VideoCapture(path_bg[i])
+    #         num_frames = int(camera_handle.get(cv2.CAP_PROP_FRAME_COUNT))
+    #         # train background model on each frame
+    #         for i_frame in range(num_frames):
+    #             ret, image = camera_handle.read()
+    #             if ret:
+    #                 background_models[i].apply(image)
+    #         # close background.avi
+    #         camera_handle.release()
+    #         # open video.avi
+    #         camera_handles.append(cv2.VideoCapture(path_video[i]))
+    #
+    #         fn = 0
+    #         while True:
+    #             # read frame
+    #             ret, image = camera_handles[i].read()
+    #             if fn == pressNum:
+    #                 # determine foreground
+    #                 foreground = background_subtraction(image, background_models[i])
+    #                 cv2.imshow('foreground', foreground)
+    #                 cv2.waitKey(20)
+    #                 break
+    #             fn += 1
+    #
+    #         # foreground = cv2.imread(bg[i])
     #         # create a dictionary for the coordinate
     #         coordDict = {tuple(lu[1]): ind for ind, lu in enumerate(lookup[i])}
     #         # change in the images compared to the previous one
@@ -164,11 +232,10 @@ def set_voxel_positions(width, height, depth, bg, pressNum):
     #         prevForeground[i] = foreground
 
     cv2.destroyAllWindows()
-    #print(lookup)
+
     data = []
     columnSum = np.zeros(len(data0))
     colorpath = './4persons/video/Take30.59624062.video.jpg'
-    #clip = cv2.imread('./data/cam{}/video.jpg'.format(2))
     clip = cv2.imread(colorpath)
     for i in range(len(data0)):
         for j in range(len(lookup)):
@@ -178,10 +245,9 @@ def set_voxel_positions(width, height, depth, bg, pressNum):
     for i in range(len(data0)):
         if columnSum[i] == 4:
             data.append(data0[i])
-            #color.append(colors[i])
             colors.append(clip[lookup[1][i][1][0]][lookup[1][i][1][1]] / 256)
 
-    saveCoord(data, bg)
+    # saveCoord(data, bg)
     # rotate array -90 degree along the x-axis.
     Rx = np.array([[1, 0, 0],
                   [0, 0, 1],
@@ -189,6 +255,33 @@ def set_voxel_positions(width, height, depth, bg, pressNum):
     dataR = [Rx.dot(p) for p in data]
     dataR = [np.multiply(DR, 5) for DR in dataR]
     return dataR, colors
+
+
+# applies background subtraction to obtain foreground mask
+def background_subtraction(image, background_model):
+    foreground_image = background_model.apply(image, learningRate=0)
+
+    # remove noise through dilation and erosion
+    erosion_elt = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+    dilation_elt = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+    foreground_image = cv2.dilate(foreground_image, dilation_elt)
+    foreground_image = cv2.erode(foreground_image, erosion_elt)
+
+    # Remove unconnected parts and only keep the horseman
+    _, thresh = cv2.threshold(foreground_image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)  # get binary image
+    num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(thresh)
+    min_size = 4500  # minimum size of connected component to keep
+    mask2 = np.zeros(thresh.shape, dtype=np.uint8)
+    for i in range(1, num_labels):
+        if stats[i, cv2.CC_STAT_AREA] >= min_size:
+            mask2[labels == i] = 255
+    result = cv2.bitwise_and(foreground_image, foreground_image, mask=mask2)
+
+    kernel = np.ones((2, 2), np.uint8)
+    result = cv2.erode(result, kernel, iterations=2)  # remove small isolated pixels
+
+    return result   #foreground_image
+
 
 
 def get_cam_positions():
