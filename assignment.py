@@ -14,7 +14,7 @@ from skimage import measure
 camera_handles = []
 background_models = []
 
-block_size = 1.0
+block_size = 3.0
 w = 8
 h = 6
 prevForeground = [None for _ in range(4)]
@@ -85,11 +85,11 @@ def saveCoord(coord, path):
 def generate_grid(width, depth):
     # Generates the floor grid locations
     # You don't need to edit this function
-    width = 220
-    depth = 200
+    width = 100
+    depth = 100
     data, colors = [], []
-    for x in range(width):
-        for z in range(depth):
+    for x in range(-20, width-20):
+        for z in range(-30, depth-30):
             data.append([x*block_size - width/2, -block_size, z*block_size - depth/2])
             colors.append([1.0, 1.0, 1.0] if (x+z) % 2 == 0 else [0.5, 0.5, 0.5])
     return data, colors
@@ -137,17 +137,19 @@ def set_voxel_positions(width, height, depth, bg, pressNum):
             camera_handle.release()
 
             # open video.avi
-            camera_handles.append(cv2.VideoCapture(path_video[i]))
-
+            camera_handles = cv2.VideoCapture(path_video[i])
             fn = 0
             while True:
                 # read frame
-                ret, image = camera_handles[i].read()
+                ret, image = camera_handles.read()
+                # cv2.imshow('foreground', image)
+                # cv2.waitKey(20)
                 if fn == pressNum:
                     # determine foreground
                     foreground = background_subtraction(image, background_models[i])
-                    # cv2.imshow('foreground', foreground)
-                    # cv2.waitKey(20)
+                    if i == 1:
+                        knnImage = image
+                        knnFg = foreground
                     break
                 fn += 1
 
@@ -163,20 +165,21 @@ def set_voxel_positions(width, height, depth, bg, pressNum):
             pts = np.int32(pts)
 
             for j in range(len(data0)):
-                # cv2.circle(foreground, tuple([pts[j][0][0], pts[j][0][1]]), 1, (0, 0, 255), -1)
+                #cv2.circle(image, tuple([pts[j][0][0], pts[j][0][1]]), 1, (0, 0, 255), -1)
                 try:
-                    # print(foreground[pts[j][0][1]][pts[j][0][0]].sum())
                     if foreground[pts[j][0][1]][pts[j][0][0]].sum() == 0:   # if point falls into the background
                         flags[i][j] = [0, [pts[j][0][1], pts[j][0][0]]]
                     else:
                         flags[i][j] = [1, [pts[j][0][1], pts[j][0][0]]]
                 except:
-                    # print("Out of range!")
                     flags[i][j] = [0, [pts[j][0][1], pts[j][0][0]]]
                     continue
             prevForeground[i] = foreground
+            # cv2.imshow('foreground', image)
+            # cv2.waitKey(20)
         lookup = flags
-        #saveTable(lookup)
+        saveTable(lookup)
+
     # the rest frames, XOR result not fully correct
     # else:
     #     for i in range(4):
@@ -230,13 +233,13 @@ def set_voxel_positions(width, height, depth, bg, pressNum):
     #             except:
     #                 continue
     #         prevForeground[i] = foreground
-
+    camera_handle.release()
     cv2.destroyAllWindows()
 
     data = []
     columnSum = np.zeros(len(data0))
-    colorpath = './4persons/video/Take30.59624062.video.jpg'
-    clip = cv2.imread(colorpath)
+    # colorpath = './4persons/video/Take30.59624062.video.jpg'
+    # clip = cv2.imread(colorpath)
     for i in range(len(data0)):
         for j in range(len(lookup)):
             columnSum[i] += lookup[j][i][0]
@@ -245,9 +248,13 @@ def set_voxel_positions(width, height, depth, bg, pressNum):
     for i in range(len(data0)):
         if columnSum[i] == 4:
             data.append(data0[i])
-            colors.append(clip[lookup[1][i][1][0]][lookup[1][i][1][1]] / 256)
+    #       colors.append(clip[lookup[1][i][1][0]][lookup[1][i][1][1]] / 256)
 
-    # saveCoord(data, bg)
+    saveCoord(data, bg)
+
+    # cluster the voxels
+    p3.knn(pressNum, knnImage, knnFg)
+
     # rotate array -90 degree along the x-axis.
     Rx = np.array([[1, 0, 0],
                   [0, 0, 1],
@@ -296,7 +303,7 @@ def get_cam_positions():
         R_inv = R.T
         position = -R_inv.dot(tvec)     # get camera position
         # get camera position in voxel space units(swap the y and z coordinates)
-        Vposition = np.array([position[0]*3, position[2]*3, position[1] * 3])
+        Vposition = np.array([position[0]*5, position[2]*5, position[1] * 5])
         cam_position.append(Vposition)
         color = [[1.0, 0, 0], [0, 1.0, 0], [0, 0, 1.0], [1.0, 1.0, 0]]
     return cam_position, color

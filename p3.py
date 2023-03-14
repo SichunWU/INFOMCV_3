@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-
+from sklearn.mixture import GaussianMixture
 import assignment
 
 def videoFrame(path, time):
@@ -34,26 +34,31 @@ def loadTable():
 
 def loadCoord(pressNum):
     newfile = f'./4persons/video/voxelCoords{pressNum}.xml'
+    #print(newfile)
     fs = cv2.FileStorage(newfile, cv2.FILE_STORAGE_READ)
     coord = fs.getNode('coord').mat()
-    return coord
+    label = fs.getNode('label').mat()
+    return coord, label
 
-def saveLabel(labels, pressNum):
+def saveLabel(labels, centers, pressNum):
     newfile = f'./4persons/video/voxelCoords{pressNum}.xml'
     fs = cv2.FileStorage(newfile, cv2.FILE_STORAGE_APPEND)
     fs.write("label", labels)
+    fs.write("center", centers)
     fs.release()
 
 
-def knn(pressNum):
-    coordOrigin = loadCoord(pressNum)
+def knn(pressNum, knnImage, knnFg):
+    coordOrigin, _ = loadCoord(pressNum)
     coord = coordOrigin[:, [0, 1]]    # Remove the height of the voxel
     numClusters = 4
     criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)
     flags = cv2.KMEANS_RANDOM_CENTERS
     compactness, labels, centers = cv2.kmeans(np.float32(coord), numClusters, None, criteria, 10, flags)
-    # saveLabel(labels, pressNum)
 
+    saveLabel(labels, centers, pressNum)
+
+    #print(centers)
     labels = np.squeeze(labels)
     # project to a view
     # colors = np.zeros((len(labels), 3))
@@ -72,7 +77,8 @@ def knn(pressNum):
     # pts, jac = cv2.projectPoints(np.float32(coordOrigin), rvec, tvec, mtx, dist)
     # pts = np.int32(pts)
     # #print(pts)
-    img = cv2.imread(f'./4persons/video/Take30.59624062.video{pressNum}.jpg')
+    #img = cv2.imread(f'./4persons/video/Take30.59624062.video{pressNum}.jpg')
+    img = knnImage
     # for i in range(len(pts)):
     #     cv2.circle(img, tuple([pts[i][0][0], pts[i][0][1]]), 2, colors[i], -1)
     # cv2.imshow('img', img)
@@ -91,13 +97,14 @@ def knn(pressNum):
         pixels = []
         for j in range(len(pts)):
             pixels.append(img[pts[j][0][1]][pts[j][0][0]].tolist())
-            cv2.circle(img, tuple([pts[j][0][0], pts[j][0][1]]), 2, img[pts[j][0][1]][pts[j][0][0]].tolist(), -1)
+            # cv2.circle(knnFg, tuple([pts[j][0][0], pts[j][0][1]]), 2, img[pts[j][0][1]][pts[j][0][0]].tolist(), -1)
         RGBdata.append(pixels)
 
-        cv2.imshow('img', img)
+        #cv2.imshow('img', img)
+        cv2.imshow('knnFg', knnFg)
         cv2.waitKey(200)
     # print(len(RGBdata))
-    # color(RGBdata, pressNum)
+    color(RGBdata, pressNum)
     cv2.destroyAllWindows()
 
 
@@ -120,6 +127,95 @@ def color(coord, pressNum):
         fs.write(f"weights{i}", np.array(weights))
         i += 1
     fs.release()
+
+
+def colorModel(coord, frame):
+    newfile = f'./4persons/video/colorModel{frame}.xml'
+    fs = cv2.FileStorage(newfile, cv2.FILE_STORAGE_WRITE)
+    means = []
+    for i in range(4) :
+        gmm = cv2.ml.EM_create()
+        gmm.setClustersNumber(3)
+        gmm.trainEM(np.array(coord[i]))
+        means.append(gmm.getMeans())
+        # means = gmm.getMeans()
+        # covs = gmm.getCovs()
+        # weights = gmm.getWeights()
+        #
+        # fs.write(f"means{i}", np.array(means))
+        # fs.write(f"covs{i}", np.array(covs))
+        # fs.write(f"weights{i}", np.array(weights))
+
+    fs.release()
+    #print(means)
+    return means
+
+
+def trainGMM(pressNum):
+    path = f'./4persons/video/voxelCoords{pressNum}.xml'
+    fs = cv2.FileStorage(path, cv2.FILE_STORAGE_READ)
+    coord = fs.getNode('coord').mat()
+    label = fs.getNode('label').mat()
+
+    pathEx = './4persons/extrinsics/Take25.59624062.config.xml'
+    fsEx = cv2.FileStorage(pathEx, cv2.FILE_STORAGE_READ)
+    mtx = fsEx.getNode('mtx').mat()
+    dist = fsEx.getNode('dist').mat()
+    rvec = fsEx.getNode('rvec').mat()
+    tvec = fsEx.getNode('tvec').mat()
+
+    label = np.squeeze(label)
+    C0 = coord[label == 0]
+    C1 = coord[label == 1]
+    C2 = coord[label == 2]
+    C3 = coord[label == 3]
+    C2D = [C0, C1, C2, C3]
+
+    camera_handles = cv2.VideoCapture("./4persons/video/Take30.59624062.20141124164749.avi")
+    fn = 0
+    frame = int(path[28:-4])
+
+    while True:
+        ret, image = camera_handles.read()
+        if fn == frame:
+            img = image
+            # cv2.imshow('foreground', image)
+            # cv2.waitKey(2000)
+            break
+        fn += 1
+
+    RGBdata = [[] for _ in range(4)]
+    for i in range(4):
+        pts, jac = cv2.projectPoints(np.float32(C2D[i]), rvec, tvec, mtx, dist)
+        pts = np.int32(pts)
+        pixels = []
+        for j in range(len(pts)):
+            pixels.append(img[pts[j][0][1]][pts[j][0][0]].tolist())
+            #cv2.circle(img, tuple([pts[j][0][0], pts[j][0][1]]), 2, img[pts[j][0][1]][pts[j][0][0]].tolist(), -1)
+        RGBdata[i] = pixels
+        # cv2.imshow('img', img)
+        # cv2.waitKey(200)
+
+    # return colorModel(RGBdata, frame)
+
+
+    # create the GMM models
+    components = 3  # the number of components in the GMM
+    gmm0 = GaussianMixture(components)
+    gmm1 = GaussianMixture(components)
+    gmm2 = GaussianMixture(components)
+    gmm3 = GaussianMixture(components)
+
+    # fit the GMM models to the training data
+    gmm0.fit(RGBdata[0])
+    gmm1.fit(RGBdata[1])
+    gmm2.fit(RGBdata[2])
+    gmm3.fit(RGBdata[3])
+    #
+    # # Store the trained GMM models for later use
+    trainedGMMs = [gmm0, gmm1, gmm2, gmm3]
+
+    return trainedGMMs
 
 
 if __name__ == "__main__":
@@ -167,5 +263,10 @@ if __name__ == "__main__":
           './4persons/video/Take30.59624062.foreground.jpg',
           './4persons/video/Take30.60703227.foreground.jpg',
           './4persons/video/Take30.62474905.foreground.jpg']
-    assignment.set_voxel_positions(1, 1, 1, bg, 0)
+    # assignment.set_voxel_positions(1, 1, 1, bg, 0)
 
+    pathCoord = f'./4persons/video/voxelCoords0.xml'
+    print(trainGMM(0))
+
+    # RGBdata = [[] for _ in range(4)]
+    # print(RGBdata)
