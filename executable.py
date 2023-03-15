@@ -17,9 +17,8 @@ from engine.config import config
 cube, hdrbuffer, blurbuffer, lastPosX, lastPosY = None, None, None, None, None
 firstTime = True
 window_width, window_height = config['window_width'], config['window_height']
-camera = Camera(glm.vec3(0, 100, 0), pitch=-90, yaw=0, speed=40)
+camera = Camera(glm.vec3(80, 150, 80), pitch=-45, yaw=-120, speed=40)
 pressNum = 0
-
 trainedGMMs = []
 
 def draw_objs(obj, program, perspective, light_pos, texture, normal, specular, depth):
@@ -50,7 +49,7 @@ def draw_objs(obj, program, perspective, light_pos, texture, normal, specular, d
 
 
 def main():
-    global hdrbuffer, blurbuffer, cube, window_width, window_height
+    global hdrbuffer, blurbuffer, cube, window_width, window_height, pressNum, trainedGMMs
 
     if not glfw.init():
         print('Failed to initialize GLFW.')
@@ -159,7 +158,9 @@ def main():
 
         draw_objs(square, program, perspective, light_pos, texture_grid, normal_grid, specular_grid, depth_grid)
 
-        update()
+        # positions, colors = p3.update(pressNum, trainedGMMs)
+        # cube.set_multiple_positions(positions, colors)
+        # pressNum += 10
 
         draw_objs(cube, program, perspective, light_pos, texture, normal, specular, depth)
         time.sleep(0.2)
@@ -178,117 +179,7 @@ def main():
 
     glfw.terminate()
 
-def update():
-    global pressNum, trainedGMMs
-    try:
-        coord, label = p3.loadCoord(pressNum)
 
-
-        camera_handles = cv2.VideoCapture("./4persons/video/Take30.59624062.20141124164749.avi")
-        fn = 0
-        while True:
-            ret, image = camera_handles.read()
-            if fn == pressNum:
-                img = image
-                # cv2.imshow('foreground', image)
-                # cv2.waitKey(2000)
-                break
-            fn += 1
-        if pressNum == 0:
-            cv2.imshow('foreground', image)
-            cv2.waitKey(0)
-        pathEx = './4persons/extrinsics/Take25.59624062.config.xml'
-        fsEx = cv2.FileStorage(pathEx, cv2.FILE_STORAGE_READ)
-        mtx = fsEx.getNode('mtx').mat()
-        dist = fsEx.getNode('dist').mat()
-        rvec = fsEx.getNode('rvec').mat()
-        tvec = fsEx.getNode('tvec').mat()
-
-        pts, jac = cv2.projectPoints(np.float32(coord), rvec, tvec, mtx, dist)
-        pts = np.int32(pts)
-        pixels = []
-        for j in range(len(pts)):
-            pixels.append(img[pts[j][0][1]][pts[j][0][0]].tolist())
-            #cv2.circle(img, tuple([pts[j][0][0], pts[j][0][1]]), 2, img[pts[j][0][1]][pts[j][0][0]].tolist(), -1)
-
-        label = np.squeeze(label)
-        pixels = np.array(pixels)
-        C0 = pixels[label == 0]
-        C1 = pixels[label == 1]
-        C2 = pixels[label == 2]
-        C3 = pixels[label == 3]
-        C2D = [C0, C1, C2, C3]
-
-        coord = np.array(coord)
-        Cood0 = coord[label == 0]
-        Cood1 = coord[label == 1]
-        Cood2 = coord[label == 2]
-        Cood3 = coord[label == 3]
-        C3D = [Cood0, Cood1, Cood2, Cood3]
-
-
-        # Euclidean distance of meanValue, no good results
-        # GMMs = p3.trainGMM(pressNum)
-        # for i in range(len(GMMs)):
-        #     distances = [np.linalg.norm(GMMs[i] - mean) for mean in
-        #                  [trainedGMMs[0], trainedGMMs[1], trainedGMMs[2], trainedGMMs[3]]]
-        #     closest_mean_dis = np.argmin(distances)
-        #     print("New data", GMMs[i], "is closest to mean value", closest_mean_dis)
-
-        # predict each pixel, no good results
-        # personLabel = []
-        # for p in np.array(pixels):
-        #     likelihoods = np.zeros(4)
-        #     likelihoods[0] = trainedGMMs[0].predict_proba(p.reshape(1, -1))[0, 1]  # likelihood of belonging to person 0
-        #     likelihoods[1] = trainedGMMs[1].predict_proba(p.reshape(1, -1))[0, 1]  # likelihood of belonging to person 1
-        #     likelihoods[2] = trainedGMMs[2].predict_proba(p.reshape(1, -1))[0, 1]  # likelihood of belonging to person 2
-        #     likelihoods[3] = trainedGMMs[3].predict_proba(p.reshape(1, -1))[0, 1]  # likelihood of belonging to person 3
-        #     personLabel.append(np.argmax(likelihoods))    # the person with the highest likelihood for this pixel value
-        # #print(personLabel)
-
-        predicted_label = []
-        for i in range(4):
-            likelihoods = [gmm.score(C2D[i]) for gmm in [trainedGMMs[0], trainedGMMs[1], trainedGMMs[2], trainedGMMs[3]]]
-            predicted_label.append(likelihoods.index(max(likelihoods)))
-            #print(predicted_label)
-
-        color = [[255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 255, 0]]   # red 0, green 1, blue 2, yellow 3
-        colors = []
-        # print(pressNum)
-        for j in range(4):
-            # print(len(C3D[j]), predicted_label[j], color[predicted_label[j]])
-            for C in C3D[j]:
-                colors.append(color[predicted_label[j]])
-            # print(len(colors))
-
-        position = []
-        for C in C3D:
-            for item in C:
-                position.append(item)
-
-        Rx = np.array([[1, 0, 0],
-                       [0, 0, 1],
-                       [0, -1, 0]])
-        positions = [Rx.dot(p) for p in position]
-        positions = [np.multiply(DR, 5) for DR in positions]
-
-        NUMBERS = [140,160,170,180,190,
-                   200,210,220,260,270,280,290,
-                   300,310,320,330,340,350,360,360,380,390,
-                   400,410,420,430,440,450,490,
-                   500,510,530,530,540,550,560,570,580,590,
-                   610,620,630,640,650,660,670,680,690,
-                   700,710,720,740,750,780,790,
-                   800,810,820,830,840,850,860,870,880,890,
-                   900,910,920,930,940,950,960,970,990,
-                   1000]
-        if pressNum not in NUMBERS:
-            cube.set_multiple_positions(positions, colors)
-        else:
-            pass
-        pressNum += 10
-    except:
-        pass
 
 def resize_callback(window, w, h):
     if h > 0:
@@ -306,14 +197,11 @@ def key_callback(window, key, scancode, action, mods):
         glfw.set_window_should_close(window, glfw.TRUE)
     if key == glfw.KEY_G and action == glfw.PRESS:
         global cube, pressNum
-
-        bg = [f'./4persons/video/Take30.54389819.foreground{pressNum}.jpg',
-              f'./4persons/video/Take30.59624062.foreground{pressNum}.jpg',
-              f'./4persons/video/Take30.60703227.foreground{pressNum}.jpg',
-              f'./4persons/video/Take30.62474905.foreground{pressNum}.jpg']
-
-        #positions, colors = set_voxel_positions(config['world_width'], config['world_height'], config['world_width'], bg, pressNum)
-
+        pressNum = 1010
+        positions, colors = p3.update(pressNum, trainedGMMs)
+        # positions, colors = set_voxel_positions(config['world_width'], config['world_height'], config['world_width'], pressNum)
+        cube.set_multiple_positions(positions, colors)
+        pressNum += 10
 
 def mouse_move(win, pos_x, pos_y):
     global firstTime, camera, lastPosX, lastPosY
@@ -340,6 +228,4 @@ def move_input(win, time):
 
 if __name__ == '__main__':
     trainedGMMs = p3.trainGMM(pressNum)
-    #print(pressNum, trainedGMMs)
-
     main()

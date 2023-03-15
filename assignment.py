@@ -65,6 +65,7 @@ def draw_mesh(positions):
     plt.tight_layout()
     plt.show()
 
+# this no longer use
 def saveTable(lookup):
     newfile = './4persons/video/lookupTable.xml'
     fs = cv2.FileStorage(newfile, cv2.FILE_STORAGE_WRITE)
@@ -75,9 +76,8 @@ def saveTable(lookup):
         fs.write("coord", coord)
     fs.release()
 
-def saveCoord(coord, path):
-    path = path[0][43:-4]
-    newfile = './4persons/video/voxelCoords' + path + '.xml'
+def saveCoord(coord, frame):
+    newfile = './4persons/video/voxelCoords' + str(frame) + '.xml'
     fs = cv2.FileStorage(newfile, cv2.FILE_STORAGE_WRITE)
     fs.write("coord", np.array(coord))
     fs.release()
@@ -95,7 +95,7 @@ def generate_grid(width, depth):
     return data, colors
 
 
-def set_voxel_positions(width, height, depth, bg, pressNum):
+def set_voxel_positions(width, height, depth, pressNum):
     # Generates random voxel locations
     global prevForeground, lookup
     width = 25
@@ -147,13 +147,10 @@ def set_voxel_positions(width, height, depth, bg, pressNum):
                 if fn == pressNum:
                     # determine foreground
                     foreground = background_subtraction(image, background_models[i])
-                    if i == 1:
-                        knnImage = image
-                        knnFg = foreground
                     break
                 fn += 1
 
-            newpath = bg[i].replace('video/Take30', 'extrinsics/Take25')
+            newpath = path_video[i].replace('video/Take30', 'extrinsics/Take25')
             newpath = newpath[:38] + 'config.xml'
             fs = cv2.FileStorage(newpath, cv2.FILE_STORAGE_READ)
             mtx = fs.getNode('mtx').mat()
@@ -165,7 +162,7 @@ def set_voxel_positions(width, height, depth, bg, pressNum):
             pts = np.int32(pts)
 
             for j in range(len(data0)):
-                #cv2.circle(image, tuple([pts[j][0][0], pts[j][0][1]]), 1, (0, 0, 255), -1)
+                cv2.circle(image, tuple([pts[j][0][0], pts[j][0][1]]), 1, (0, 0, 255), -1)
                 try:
                     if foreground[pts[j][0][1]][pts[j][0][0]].sum() == 0:   # if point falls into the background
                         flags[i][j] = [0, [pts[j][0][1], pts[j][0][0]]]
@@ -175,10 +172,11 @@ def set_voxel_positions(width, height, depth, bg, pressNum):
                     flags[i][j] = [0, [pts[j][0][1], pts[j][0][0]]]
                     continue
             prevForeground[i] = foreground
-            # cv2.imshow('foreground', image)
-            # cv2.waitKey(20)
+            cv2.imshow('image', image)
+            cv2.imshow('foreground', foreground)
+            cv2.waitKey(20)
         lookup = flags
-        saveTable(lookup)
+        # saveTable(lookup) # this no longer use
 
     # the rest frames, XOR result not fully correct
     # else:
@@ -238,22 +236,19 @@ def set_voxel_positions(width, height, depth, bg, pressNum):
 
     data = []
     columnSum = np.zeros(len(data0))
-    # colorpath = './4persons/video/Take30.59624062.video.jpg'
-    # clip = cv2.imread(colorpath)
     for i in range(len(data0)):
         for j in range(len(lookup)):
             columnSum[i] += lookup[j][i][0]
 
     # if voxels in all views are visible, show it on the screen
+    colors = []
     for i in range(len(data0)):
         if columnSum[i] == 4:
             data.append(data0[i])
-    #       colors.append(clip[lookup[1][i][1][0]][lookup[1][i][1][1]] / 256)
+            colors.append([0, 0, 255])
 
-    saveCoord(data, bg)
-
-    # cluster the voxels
-    p3.knn(pressNum, knnImage, knnFg)
+    # saveCoord(data, pressNum)       # save voxel coords
+    # p3.knn(pressNum)                # save cluster result
 
     # rotate array -90 degree along the x-axis.
     Rx = np.array([[1, 0, 0],
