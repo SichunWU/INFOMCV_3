@@ -65,7 +65,15 @@ def draw_mesh(positions):
     plt.tight_layout()
     plt.show()
 
-# this no longer use
+# save voxel coords
+def saveCoord(coord, frame):
+    newfile = './4persons/video/voxelCoords' + str(frame) + '.xml'
+    fs = cv2.FileStorage(newfile, cv2.FILE_STORAGE_WRITE)
+    fs.write("coord", np.array(coord))
+    fs.release()
+
+
+"""this no longer use"""
 def saveTable(lookup):
     newfile = './4persons/video/lookupTable.xml'
     fs = cv2.FileStorage(newfile, cv2.FILE_STORAGE_WRITE)
@@ -74,12 +82,6 @@ def saveTable(lookup):
         coord = np.array([x[1] for x in lookup[i]])
         fs.write("flag", flag)
         fs.write("coord", coord)
-    fs.release()
-
-def saveCoord(coord, frame):
-    newfile = './4persons/video/voxelCoords' + str(frame) + '.xml'
-    fs = cv2.FileStorage(newfile, cv2.FILE_STORAGE_WRITE)
-    fs.write("coord", np.array(coord))
     fs.release()
 
 def generate_grid(width, depth):
@@ -178,7 +180,7 @@ def set_voxel_positions(width, height, depth, pressNum):
         lookup = flags
         # saveTable(lookup) # this no longer use
 
-    # the rest frames, XOR result not fully correct
+    # the rest frames, XOR result is not fully correct
     # else:
     #     for i in range(4):
     #         # train MOG2 on background video, remove shadows, default learning rate
@@ -285,13 +287,13 @@ def background_subtraction(image, background_model):
     return result   #foreground_image
 
 
-
 def get_cam_positions():
     # Generates dummy camera locations at the 4 corners of the room
     # TODO: You need to input the estimated locations of the 4 cameras in the world coordinates.
     cam_position = []
     for i in range(4):
-        fs = cv2.FileStorage('./data/cam{}/config.xml'.format(i + 1), cv2.FILE_STORAGE_READ)
+        # fs = cv2.FileStorage('./data/cam{}/config.xml'.format(i + 1), cv2.FILE_STORAGE_READ)
+        fs = cv2.FileStorage(p3.paths_ex[i], cv2.FILE_STORAGE_READ)
         tvec = fs.getNode('tvec').mat()
         rvec = fs.getNode('rvec').mat()
         R, _ = cv2.Rodrigues(rvec)
