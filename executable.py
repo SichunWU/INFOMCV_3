@@ -158,10 +158,9 @@ def main():
 
         draw_objs(square, program, perspective, light_pos, texture_grid, normal_grid, specular_grid, depth_grid)
 
-        if pressNum <= 1360 :
-            if pressNum not in p3.NUMBERS:
-                positions, colors = p3.update(pressNum, trainedGMMs)
-                cube.set_multiple_positions(positions, colors)
+        if pressNum <= 1360:
+            positions, colors = p3.update(pressNum, trainedGMMs)
+            cube.set_multiple_positions(positions, colors)
             pressNum += 10
 
         draw_objs(cube, program, perspective, light_pos, texture, normal, specular, depth)
@@ -199,15 +198,14 @@ def key_callback(window, key, scancode, action, mods):
         glfw.set_window_should_close(window, glfw.TRUE)
     if key == glfw.KEY_G and action == glfw.PRESS:
         global cube, pressNum
-        # if pressNum in p3.NUMBERS:
-        #     positions, colors = p3.update(pressNum, trainedGMMs)
-        #     """use set_voxel_positions to save the voxel points, to get better generating speed"""
-        #     # positions, colors = set_voxel_positions(config['world_width'], config['world_height'], config['world_width'], pressNum)
-        #     cube.set_multiple_positions(positions, colors)
+        # positions, colors = p3.update(pressNum, trainedGMMs)
+        # """use set_voxel_positions to save the voxel points, to get better generating speed"""
+        # # positions, colors = set_voxel_positions(config['world_width'], config['world_height'], config['world_width'], pressNum)
+        # cube.set_multiple_positions(positions, colors)
         # pressNum += 10
         """press G after the voxel generation stops"""
-        p3.draw()
-        # p3.drawPath()
+        # p3.draw()
+        p3.drawPath()
 
 def mouse_move(win, pos_x, pos_y):
     global firstTime, camera, lastPosX, lastPosY

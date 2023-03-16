@@ -1,3 +1,6 @@
+import statistics
+from collections import Counter, defaultdict
+
 import cv2
 import numpy as np
 from sklearn.mixture import GaussianMixture
@@ -6,21 +9,6 @@ import assignment
 #tracing position and color
 trackingP = []
 trackingC = []
-
-NUMBERS = [140, 160, 180, 190,
-           210, 220, 260, 270, 280,
-           320, 350, 360,
-           430,
-           520, 550, 560, 570, 580,
-           650, 680, 690,
-           700, 710, 720, 730, 740, 750, 790,
-           800, 810, 830, 860,
-           940, 950, 960, 970, 990,
-           1020,
-           1110, 1130, 1150, 1160,
-           1200, 1210, 1220, 1230, 1240, 1250, 1260,
-           1320, 1330, 1340, 1350, 1360]
-
 
 paths_ex = ["./4persons/extrinsics/Take25.54389819.config.xml",
           "./4persons/extrinsics/Take25.59624062.config.xml",
@@ -45,7 +33,6 @@ def update(pressNum, trainedGMMs):
     C3D = [Cood0, Cood1, Cood2, Cood3]
 
     predicted_label_4cam = []
-    predicted_likelihoods_4cam = []
     for i in range(4):
         camera_handles = cv2.VideoCapture(path_video[i])
         fn = 0
@@ -80,28 +67,90 @@ def update(pressNum, trainedGMMs):
         C2D = [C0, C1, C2, C3]
 
         predicted_label = []
-        predicted_likelihoods = []
         for n in range(4):
-            likelihoods = [gmm.score(C2D[n]) for gmm in trainedGMMs[1]]
-            predicted_label.append(likelihoods.index(max(likelihoods)))
-            predicted_likelihoods.append(likelihoods)
+            likelihoods0 = [gmm.score(C2D[n]) for gmm in trainedGMMs[0]]
+            likelihoods1 = [gmm.score(C2D[n]) for gmm in trainedGMMs[1]]
+            likelihoods2 = [gmm.score(C2D[n]) for gmm in trainedGMMs[2]]
+            likelihoods3 = [gmm.score(C2D[n]) for gmm in trainedGMMs[3]]
+            # get the likelihood for a cluster of all trained GMMs
+            likeli_allcam = [likelihoods0.index(max(likelihoods0)),
+                           likelihoods1.index(max(likelihoods1)),
+                           likelihoods2.index(max(likelihoods2)),
+                           likelihoods3.index(max(likelihoods3))]
+            # set the predicted_label as the most common label appeared in all cameras
+            most_common = statistics.mode(likeli_allcam)
+            predicted_label.append(most_common)
+        # get the predicted_label of all cameras
         predicted_label_4cam.append(predicted_label)
-        #predicted_likelihoods_4cam.append(predicted_likelihoods)
 
     predicted_label_4cam = np.array(predicted_label_4cam)
-    # print(predicted_label_4cam)
+    """"
+    Explain: the predicted_label_4cam will have the following format. 
+    Each row means the highest possible label of cluster 1 to 4. Combined the results of training GMMs from 4 camera.
+    Each column is the result that projected voxels into camera 1 to 4.
+    e.g. predicted_label_4cam =
+    [[0 3 1 0]
+    [3 3 1 0]
+    [2 3 3 0]
+    [2 3 3 3]]
+    """
 
+    """
+    Counter is to count the occurrence of each number in a column. For the predicted_label_4cam, result is:
+    Counter({2: 2, 0: 1, 3: 1}) We need the most common number in column 0, common_numbers is 2.
+    Counter({3: 4})             We need the most common number in column 1, common_numbers is 3.
+    Counter({1: 2, 3: 2})       We need the most common number in column 2, common_numbers are 1 and 3.
+    Counter({0: 3, 3: 1})       We need the most common number in column 2, common_numbers is 0.
+    """
     final_label = []
-    for row in predicted_label_4cam:
-        if len(row) == len(set(row)):
-            final_label = row
-            break
-    if len(final_label) == 0:
-        uniqueCounts = np.apply_along_axis(lambda x: len(np.unique(x)), axis=1, arr=predicted_label_4cam)
-        max_uniqueCount = np.max(uniqueCounts)
-        max_uniqueIndices = np.where(uniqueCounts == max_uniqueCount)[0]
-        final_label = predicted_label_4cam[max_uniqueIndices][0]
+    common_numbers_4clus = []
+    for col in range(len(predicted_label_4cam[0])):
+        counts = Counter(row[col] for row in predicted_label_4cam)
+        max_count = max(counts.values())
+        common_numbers = [num for num, count in counts.items() if count == max_count]
+        common_numbers_4clus. append(common_numbers)
+    # print(common_numbers_4clus)
+    """
+    common_numbers_4clus will be the format [[2], [3], [1,3], [0]]
+    or [[2,3], [3], [1,3], [0]]
+    or [[2], [3], [1], [0]]...
+    """
 
+    # if common_numbers has more than one result,
+    # we check if the numbers have been taken, if not assign it to this column
+    col = 0
+    missingCol = None
+    for cn in common_numbers_4clus:
+        if len(cn) == 1:
+            final_label.append(cn[0])
+        # if the item in common_numbers_4clus has multiple result, like [2,3].
+        # check if one of the number not in other items of common_numbers_4clus
+        else:
+            valid_numbers = []
+            for num in cn:
+                if col == 3:    # common_numbers_4clus[3] has multiple result
+                    if all(num not in sublist for sublist in common_numbers_4clus[:3]):
+                        valid_numbers.append(num)
+                elif col == 0:  # common_numbers_4clus[0] has multiple result
+                    if all(num not in sublist for sublist in common_numbers_4clus[1:]):
+                        valid_numbers.append(num)
+                else:           # common_numbers_4clus[1] or [2] has multiple result
+                    if all(num not in sublist for sublist in (common_numbers_4clus[:col] + common_numbers_4clus[col + 1:])):
+                        valid_numbers.append(num)
+
+            # valid_numbers can get one result, or empty. If empty, save the index that is missing.
+            if len(valid_numbers) == 1:
+                final_label.append(valid_numbers[0])
+            else:
+                missingCol = col
+        col += 1
+
+    # if final_label is missing one item, add the missing one within 0 to 3
+    if len(final_label) < 4:
+        missing_elements = set([0, 1, 2, 3]).difference(set(final_label))
+        if missing_elements:
+            missing = missing_elements.pop()
+            final_label.insert(missingCol,missing)
     # print(final_label)
 
     color = [[255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 165, 0]]  # red 0, green 1, blue 2, yellow 3
@@ -131,13 +180,13 @@ def savePath(trackingP, trackingC):
     fs = cv2.FileStorage(newfile, cv2.FILE_STORAGE_WRITE)
     fs.write("Points", np.array(trackingP))
     fs.write("Color", np.array(trackingC))
-    print(len(trackingP), len(trackingC))
+    # print(len(trackingP), len(trackingC))
     fs.release()
 
 # draw path, after press G
 def draw():
     global trackingP, trackingC
-    #savePath(trackingP, trackingC)
+    # savePath(trackingP, trackingC)
 
     imgTracking = np.zeros((720, 720, 3), np.uint8)
     imgTracking.fill(192)
@@ -165,7 +214,7 @@ def drawPath():
         cv2.imshow("Tracking", imgTracking)
         cv2.waitKey(20)
     filename = f'./4persons/video/trajectories.jpg'
-    # cv2.imwrite(filename, imgTracking)
+    cv2.imwrite(filename, imgTracking)
 
     # draw for each color
     # for CL in range(4):
@@ -228,7 +277,7 @@ def trainGMM(pressNum):
             pixels = []
             for j in range(len(pts)):
                 pixels.append(img[pts[j][0][1]][pts[j][0][0]].tolist())
-                cv2.circle(img, tuple([pts[j][0][0], pts[j][0][1]]), 2, img[pts[j][0][1]][pts[j][0][0]].tolist(), -1)
+                # cv2.circle(img, tuple([pts[j][0][0], pts[j][0][1]]), 2, img[pts[j][0][1]][pts[j][0][0]].tolist(), -1)
             RGBdata[person] = pixels
             # cv2.imshow('img', img)
             # cv2.waitKey(1000)
@@ -529,9 +578,12 @@ if __name__ == "__main__":
     # assignment.set_voxel_positions(1, 1, 1, 200)
     # knn(140)
     # trainedGMMs = trainGMM(0)
-    # update(1070, trainedGMMs)
+    # update(300, trainedGMMs)
 
     # for n in NUMBERS:
     #     update(n,trainedGMMs)
     drawPath()
+
+
+
 
