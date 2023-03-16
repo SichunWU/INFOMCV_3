@@ -174,9 +174,9 @@ def set_voxel_positions(width, height, depth, pressNum):
                     flags[i][j] = [0, [pts[j][0][1], pts[j][0][0]]]
                     continue
             prevForeground[i] = foreground
-            cv2.imshow('image', image)
-            cv2.imshow('foreground', foreground)
-            cv2.waitKey(20)
+            # cv2.imshow('image', image)
+            # cv2.imshow('foreground', foreground)
+            # cv2.waitKey(20)
         lookup = flags
         # saveTable(lookup) # this no longer use
 
@@ -249,8 +249,8 @@ def set_voxel_positions(width, height, depth, pressNum):
             data.append(data0[i])
             colors.append([0, 0, 255])
 
-    # saveCoord(data, pressNum)       # save voxel coords
-    # p3.knn(pressNum)                # save cluster result
+    saveCoord(data, pressNum)       # save voxel coords
+    p3.knn(pressNum)                # save cluster result
 
     # rotate array -90 degree along the x-axis.
     Rx = np.array([[1, 0, 0],

@@ -7,6 +7,21 @@ import assignment
 trackingP = []
 trackingC = []
 
+NUMBERS = [140, 160, 180, 190,
+           210, 220, 260, 270, 280,
+           320, 350, 360,
+           430,
+           520, 550, 560, 570, 580,
+           650, 680, 690,
+           700, 710, 720, 730, 740, 750, 790,
+           800, 810, 830, 860,
+           940, 950, 960, 970, 990,
+           1020,
+           1110, 1130, 1150, 1160,
+           1200, 1210, 1220, 1230, 1240, 1250, 1260,
+           1320, 1330, 1340, 1350, 1360]
+
+
 paths_ex = ["./4persons/extrinsics/Take25.54389819.config.xml",
           "./4persons/extrinsics/Take25.59624062.config.xml",
           "./4persons/extrinsics/Take25.60703227.config.xml",
@@ -19,111 +34,133 @@ path_video = ["./4persons/video/Take30.54389819.20141124164749.avi",
 # update voxel position
 def update(pressNum, trainedGMMs):
     global trackingP, trackingR
-    try:
-        coord, label, center = loadCoord(pressNum)
-        label = np.squeeze(label)
-        coord = np.array(coord)
-        Cood0 = coord[label == 0]
-        Cood1 = coord[label == 1]
-        Cood2 = coord[label == 2]
-        Cood3 = coord[label == 3]
-        C3D = [Cood0, Cood1, Cood2, Cood3]
+    print(pressNum)
+    coord, label, center = loadCoord(pressNum)
+    label = np.squeeze(label)
+    coord = np.array(coord)
+    Cood0 = coord[label == 0]
+    Cood1 = coord[label == 1]
+    Cood2 = coord[label == 2]
+    Cood3 = coord[label == 3]
+    C3D = [Cood0, Cood1, Cood2, Cood3]
 
-        predicted_label_4cam = []
-        predicted_likelihoods_4cam = []
-        for i in range(4):
-            camera_handles = cv2.VideoCapture(path_video[i])
-            fn = 0
-            while True:
-                ret, image = camera_handles.read()
-                if fn == pressNum:
-                    img = image
-                    # cv2.imshow('foreground', image)
-                    # cv2.waitKey(2000)
-                    break
-                fn += 1
-
-            fsEx = cv2.FileStorage(paths_ex[i], cv2.FILE_STORAGE_READ)
-            mtx = fsEx.getNode('mtx').mat()
-            dist = fsEx.getNode('dist').mat()
-            rvec = fsEx.getNode('rvec').mat()
-            tvec = fsEx.getNode('tvec').mat()
-
-            pts, jac = cv2.projectPoints(np.float32(coord), rvec, tvec, mtx, dist)
-            pts = np.int32(pts)
-            pixels = []
-            for j in range(len(pts)):
-                pixels.append(img[pts[j][0][1]][pts[j][0][0]].tolist())
-                cv2.circle(img, tuple([pts[j][0][0], pts[j][0][1]]), 2, img[pts[j][0][1]][pts[j][0][0]].tolist(), -1)
-            # cv2.imshow('img', img)
-            # cv2.waitKey(0)
-            pixels = np.array(pixels)
-            C0 = pixels[label == 0]
-            C1 = pixels[label == 1]
-            C2 = pixels[label == 2]
-            C3 = pixels[label == 3]
-            C2D = [C0, C1, C2, C3]
-
-            predicted_label = []
-            predicted_likelihoods = []
-            for n in range(4):
-                likelihoods = [gmm.score(C2D[n]) for gmm in trainedGMMs[1]]
-                predicted_label.append(likelihoods.index(max(likelihoods)))
-                predicted_likelihoods.append(likelihoods)
-            predicted_label_4cam.append(predicted_label)
-            #predicted_likelihoods_4cam.append(predicted_likelihoods)
-
-        predicted_label_4cam = np.array(predicted_label_4cam)
-        #print(np.array(predicted_label_4cam))
-
-        final_label = []
-        for row in predicted_label_4cam:
-            if len(row) == len(set(row)):
-                final_label = row
+    predicted_label_4cam = []
+    predicted_likelihoods_4cam = []
+    for i in range(4):
+        camera_handles = cv2.VideoCapture(path_video[i])
+        fn = 0
+        while True:
+            ret, image = camera_handles.read()
+            if fn == pressNum:
+                img = image
+                # cv2.imshow('foreground', image)
+                # cv2.waitKey(2000)
                 break
-        if final_label == []:
-            counts = np.apply_along_axis(lambda x: np.bincount(x, minlength=len(np.unique(predicted_label_4cam))),
-                                         axis=1, arr=predicted_label_4cam)
-            # Find the row with the least number of repeated items
-            x = np.argmin(np.sum(counts > 1, axis=1))
-            result = predicted_label_4cam[x]
-            final_label = result
+            fn += 1
 
-        #print(final_label)
+        fsEx = cv2.FileStorage(paths_ex[i], cv2.FILE_STORAGE_READ)
+        mtx = fsEx.getNode('mtx').mat()
+        dist = fsEx.getNode('dist').mat()
+        rvec = fsEx.getNode('rvec').mat()
+        tvec = fsEx.getNode('tvec').mat()
 
-        color = [[255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 165, 0]]  # red 0, green 1, blue 2, yellow 3
-        colors = []
-        for j in range(4):
-            for C in C3D[j]:
-                colors.append(color[final_label[j]])
-            trackingC.append(color[final_label[j]])
-            trackingP.append(np.int32(center[j]))
+        pts, jac = cv2.projectPoints(np.float32(coord), rvec, tvec, mtx, dist)
+        pts = np.int32(pts)
+        pixels = []
+        for j in range(len(pts)):
+            pixels.append(img[pts[j][0][1]][pts[j][0][0]].tolist())
+            cv2.circle(img, tuple([pts[j][0][0], pts[j][0][1]]), 2, img[pts[j][0][1]][pts[j][0][0]].tolist(), -1)
+        # cv2.imshow('img', img)
+        # cv2.waitKey(0)
+        pixels = np.array(pixels)
+        C0 = pixels[label == 0]
+        C1 = pixels[label == 1]
+        C2 = pixels[label == 2]
+        C3 = pixels[label == 3]
+        C2D = [C0, C1, C2, C3]
 
-        position = []
-        for C in C3D:
-            for item in C:
-                position.append(item)
+        predicted_label = []
+        predicted_likelihoods = []
+        for n in range(4):
+            likelihoods = [gmm.score(C2D[n]) for gmm in trainedGMMs[1]]
+            predicted_label.append(likelihoods.index(max(likelihoods)))
+            predicted_likelihoods.append(likelihoods)
+        predicted_label_4cam.append(predicted_label)
+        #predicted_likelihoods_4cam.append(predicted_likelihoods)
 
-        Rx = np.array([[1, 0, 0],
-                       [0, 0, 1],
-                       [0, -1, 0]])
-        positions = [Rx.dot(p) for p in position]
-        positions = [np.multiply(DR, 5) for DR in positions]
+    predicted_label_4cam = np.array(predicted_label_4cam)
+    print(predicted_label_4cam)
 
-    except:
-        pass
+    final_label = []
+    for row in predicted_label_4cam:
+        if len(row) == len(set(row)):
+            final_label = row
+            break
+    if len(final_label) == 0:
+        uniqueCounts = np.apply_along_axis(lambda x: len(np.unique(x)), axis=1, arr=predicted_label_4cam)
+        max_uniqueCount = np.max(uniqueCounts)
+        max_uniqueIndices = np.where(uniqueCounts == max_uniqueCount)[0]
+        final_label = predicted_label_4cam[max_uniqueIndices][0]
+
+    print(final_label)
+
+    color = [[255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 165, 0]]  # red 0, green 1, blue 2, yellow 3
+    colors = []
+    for j in range(4):
+        for C in C3D[j]:
+            colors.append(color[final_label[j]])
+        trackingC.append(color[final_label[j]])
+        trackingP.append(np.int32(center[j]))
+
+    position = []
+    for C in C3D:
+        for item in C:
+            position.append(item)
+
+    Rx = np.array([[1, 0, 0],
+                   [0, 0, 1],
+                   [0, -1, 0]])
+    positions = [Rx.dot(p) for p in position]
+    positions = [np.multiply(DR, 5) for DR in positions]
 
     return positions, colors
+
+# save label and center to storage
+def savePath(trackingP, trackingC):
+    newfile = f'./4persons/video/trajectories.xml'
+    fs = cv2.FileStorage(newfile, cv2.FILE_STORAGE_WRITE)
+    fs.write("Points", np.array(trackingP))
+    fs.write("Color", np.array(trackingC))
+    print(len(trackingP), len(trackingC))
+    fs.release()
 
 # draw path, after press G
 def draw():
     global trackingP, trackingC
+    #savePath(trackingP, trackingC)
+
     imgTracking = np.zeros((720, 720, 3), np.uint8)
     imgTracking.fill(192)
     for i in range(len(trackingP)):
-        cv2.circle(imgTracking, trackingP[i]*15 + 250, 4, trackingC[i], -1)
+        cv2.circle(imgTracking, trackingP[i]*15 + 245, 4, trackingC[i], -1)
         cv2.imshow("Tracking", imgTracking)
         cv2.waitKey(20)
+
+
+# draw path, load points
+def drawPath():
+    newfile = f'./4persons/video/trajectories.xml'
+    fs = cv2.FileStorage(newfile, cv2.FILE_STORAGE_READ)
+    Points = fs.getNode('Points').mat()
+    Color = fs.getNode('Color').mat()
+    fs.release()
+    imgTracking = np.zeros((720, 720, 3), np.uint8)
+    imgTracking.fill(192)
+    for i in range(len(Points)):
+        cv2.circle(imgTracking, Points[i] * 10 + 245, 2, Color[i].tolist(), -1)
+        cv2.imshow("Tracking", imgTracking)
+        cv2.waitKey(20)
+    cv2.waitKey(0)
 
 # train GMMs
 def trainGMM(pressNum):
@@ -466,19 +503,10 @@ if __name__ == "__main__":
 
     # assignment.set_voxel_positions(1, 1, 1, 200)
     # knn(140)
-    trainedGMMs = trainGMM(0)
-    update(300,trainedGMMs)
-    NUMBERS = [140,150,160,170,180,190,
-                   200,210,220,260,270,280,290,
-                   300,310,320,330,340,350,360,360,380,390,
-                   400,410,420,430,440,450,490,
-                   500,510,530,530,540,550,560,570,580,590,
-                   610,620,630,640,650,660,670,680,690,
-                   700,710,720,740,750,780,790,
-                   800,810,820,830,840,850,860,870,880,890,
-                   900,910,920,930,940,950,960,970,990,
-                   1000]
+    # trainedGMMs = trainGMM(0)
+    # update(1070, trainedGMMs)
 
     # for n in NUMBERS:
     #     update(n,trainedGMMs)
+    drawPath()
 
