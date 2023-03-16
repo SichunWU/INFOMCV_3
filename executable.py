@@ -158,7 +158,7 @@ def main():
 
         draw_objs(square, program, perspective, light_pos, texture_grid, normal_grid, specular_grid, depth_grid)
 
-        if pressNum <= 1360 :
+        if pressNum <= 1360:
             if pressNum not in p3.NUMBERS:
                 positions, colors = p3.update(pressNum, trainedGMMs)
                 cube.set_multiple_positions(positions, colors)
