@@ -34,7 +34,7 @@ path_video = ["./4persons/video/Take30.54389819.20141124164749.avi",
 # update voxel position
 def update(pressNum, trainedGMMs):
     global trackingP, trackingR
-    print(pressNum)
+    # print(pressNum)
     coord, label, center = loadCoord(pressNum)
     label = np.squeeze(label)
     coord = np.array(coord)
@@ -69,7 +69,7 @@ def update(pressNum, trainedGMMs):
         pixels = []
         for j in range(len(pts)):
             pixels.append(img[pts[j][0][1]][pts[j][0][0]].tolist())
-            cv2.circle(img, tuple([pts[j][0][0], pts[j][0][1]]), 2, img[pts[j][0][1]][pts[j][0][0]].tolist(), -1)
+            # cv2.circle(img, tuple([pts[j][0][0], pts[j][0][1]]), 2, img[pts[j][0][1]][pts[j][0][0]].tolist(), -1)
         # cv2.imshow('img', img)
         # cv2.waitKey(0)
         pixels = np.array(pixels)
@@ -89,7 +89,7 @@ def update(pressNum, trainedGMMs):
         #predicted_likelihoods_4cam.append(predicted_likelihoods)
 
     predicted_label_4cam = np.array(predicted_label_4cam)
-    print(predicted_label_4cam)
+    # print(predicted_label_4cam)
 
     final_label = []
     for row in predicted_label_4cam:
@@ -102,7 +102,7 @@ def update(pressNum, trainedGMMs):
         max_uniqueIndices = np.where(uniqueCounts == max_uniqueCount)[0]
         final_label = predicted_label_4cam[max_uniqueIndices][0]
 
-    print(final_label)
+    # print(final_label)
 
     color = [[255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 165, 0]]  # red 0, green 1, blue 2, yellow 3
     colors = []
@@ -153,13 +153,38 @@ def drawPath():
     fs = cv2.FileStorage(newfile, cv2.FILE_STORAGE_READ)
     Points = fs.getNode('Points').mat()
     Color = fs.getNode('Color').mat()
+    # Points = Points.reshape(int(len(Points)/4), 4, 2)
+    # Color = Color.reshape(int(len(Color)/4), 4, 3)
     fs.release()
+
+    # draw together:
     imgTracking = np.zeros((720, 720, 3), np.uint8)
     imgTracking.fill(192)
     for i in range(len(Points)):
         cv2.circle(imgTracking, Points[i] * 10 + 245, 2, Color[i].tolist(), -1)
         cv2.imshow("Tracking", imgTracking)
         cv2.waitKey(20)
+    filename = f'./4persons/video/trajectories.jpg'
+    # cv2.imwrite(filename, imgTracking)
+
+    # draw for each color
+    # for CL in range(4):
+    #     imgTracking = np.zeros((720, 720, 3), np.uint8)
+    #     imgTracking.fill(192)
+    #     for i in range(len(Points)):
+    #         p = Points[i].tolist()
+    #         c = Color[i].tolist()
+    #         point_color = list(zip(p, c))
+    #         # sort by color
+    #         sort = sorted(point_color, key=lambda x: x[1])
+    #         sorted_points, sorted_colors = zip(*sort)
+    #         sorted_points = np.array(sorted_points)
+    #         print(sorted_points, sorted_colors)
+    #         cv2.circle(imgTracking, sorted_points[CL] * 10 + 245, 2, sorted_colors[CL], -1)
+    #         cv2.imshow("Tracking", imgTracking)
+    #         cv2.waitKey(20)
+    #     filename =  f'./4persons/video/trajectories{CL}.jpg'
+    #     cv2.imwrite(filename, imgTracking)
     cv2.waitKey(0)
 
 # train GMMs
