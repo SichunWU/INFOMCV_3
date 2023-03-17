@@ -205,7 +205,7 @@ def update(pressNum, trainedGMMs):
         for C in C3D[j]:
             colors.append(color[final_label[j]])
         trackingC.append(color[final_label[j]])
-        trackingP.append(np.int32(center[j]))
+        trackingP.append(center[j])
 
     position = []
     for C in C3D:
@@ -222,7 +222,7 @@ def update(pressNum, trainedGMMs):
 
 # save label and center to storage
 def savePath(trackingP, trackingC):
-    newfile = f'./4persons/video/trajectories.xml'
+    newfile = f'./4persons/video/trajectoriesFloat.xml'
     fs = cv2.FileStorage(newfile, cv2.FILE_STORAGE_WRITE)
     fs.write("Points", np.array(trackingP))
     fs.write("Color", np.array(trackingC))
@@ -232,19 +232,18 @@ def savePath(trackingP, trackingC):
 # draw path, after press G
 def draw():
     global trackingP, trackingC
-    # savePath(trackingP, trackingC)
-
+    #savePath(trackingP, trackingC)
     imgTracking = np.zeros((720, 720, 3), np.uint8)
     imgTracking.fill(192)
     for i in range(len(trackingP)):
-        cv2.circle(imgTracking, trackingP[i]*15 + 245, 4, trackingC[i], -1)
+        cv2.circle(imgTracking, np.int32(trackingP[i]*15 + 245), 4, trackingC[i], -1)
         cv2.imshow("Tracking", imgTracking)
         cv2.waitKey(20)
 
 
 # draw path, load points
 def drawPath():
-    newfile = f'./4persons/video/trajectories.xml'
+    newfile = f'./4persons/video/trajectoriesFloat.xml'
     fs = cv2.FileStorage(newfile, cv2.FILE_STORAGE_READ)
     Points = fs.getNode('Points').mat()
     Color = fs.getNode('Color').mat()
@@ -253,10 +252,10 @@ def drawPath():
     fs.release()
 
     # draw together:
-    imgTracking = np.zeros((720, 720, 3), np.uint8)
+    imgTracking = np.zeros((720, 640, 3), np.uint8)
     imgTracking.fill(192)
     for i in range(len(Points)):
-        cv2.circle(imgTracking, Points[i] * 10 + 245, 2, Color[i].tolist(), -1)
+        cv2.circle(imgTracking, np.int32(Points[i] * 20 + 150), 2, Color[i].tolist(), -1)
         cv2.imshow("Tracking", imgTracking)
         cv2.waitKey(20)
     filename = f'./4persons/video/trajectories.jpg'
