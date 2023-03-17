@@ -22,7 +22,7 @@ path_video = ["./4persons/video/Take30.54389819.20141124164749.avi",
 # update voxel position
 def update(pressNum, trainedGMMs):
     global trackingP, trackingR
-    print(pressNum)
+    # print(pressNum)
     coord, label, center = loadCoord(pressNum)
     label = np.squeeze(label)
     coord = np.array(coord)
