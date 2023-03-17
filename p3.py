@@ -205,7 +205,7 @@ def update(pressNum, trainedGMMs):
         for C in C3D[j]:
             colors.append(color[final_label[j]])
         trackingC.append(color[final_label[j]])
-        trackingP.append(np.int32(center[j]))
+        trackingP.append(center[j])
 
     position = []
     for C in C3D:
@@ -222,7 +222,7 @@ def update(pressNum, trainedGMMs):
 
 # save label and center to storage
 def savePath(trackingP, trackingC):
-    newfile = f'./4persons/video/trajectories.xml'
+    newfile = f'./4persons/video/trajectoriesFloat.xml'
     fs = cv2.FileStorage(newfile, cv2.FILE_STORAGE_WRITE)
     fs.write("Points", np.array(trackingP))
     fs.write("Color", np.array(trackingC))
@@ -232,8 +232,8 @@ def savePath(trackingP, trackingC):
 # draw path, after press G
 def draw():
     global trackingP, trackingC
-    # savePath(trackingP, trackingC)
-
+    savePath(trackingP, trackingC)
+    trackingP = np.int32(trackingP)
     imgTracking = np.zeros((720, 720, 3), np.uint8)
     imgTracking.fill(192)
     for i in range(len(trackingP)):

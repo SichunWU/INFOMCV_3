@@ -203,8 +203,8 @@ def key_callback(window, key, scancode, action, mods):
         # cube.set_multiple_positions(positions, colors)
         # pressNum += 10
         """press G after the voxel generation stops"""
-        # p3.draw()
-        p3.drawPath()
+        p3.draw()
+        # p3.drawPath()
 
 def mouse_move(win, pos_x, pos_y):
     global firstTime, camera, lastPosX, lastPosY
