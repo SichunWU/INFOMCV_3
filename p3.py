@@ -237,22 +237,22 @@ def drawPath():
     cv2.waitKey(0)
 
 # train GMMs
-def trainGMM(pressNum):
+def trainGMM(frames):
     global paths_ex, path_video
-    path = f'./4persons/video/voxelCoords{pressNum}.xml'
-    fs = cv2.FileStorage(path, cv2.FILE_STORAGE_READ)
-    coord = fs.getNode('coord').mat()
-    label = fs.getNode('label').mat()
-
-    label = np.squeeze(label)
-    C0 = coord[label == 0]
-    C1 = coord[label == 1]
-    C2 = coord[label == 2]
-    C3 = coord[label == 3]
-    C3D = [C0, C1, C2, C3]
-
     trainedGMMs = []
     for i in range(4):
+        path = f'./4persons/video/voxelCoords{frames[i]}.xml'
+        fs = cv2.FileStorage(path, cv2.FILE_STORAGE_READ)
+        coord = fs.getNode('coord').mat()
+        label = fs.getNode('label').mat()
+
+        label = np.squeeze(label)
+        C0 = coord[label == 0]
+        C1 = coord[label == 1]
+        C2 = coord[label == 2]
+        C3 = coord[label == 3]
+        C3D = [C0, C1, C2, C3]
+
         fsEx = cv2.FileStorage(paths_ex[i], cv2.FILE_STORAGE_READ)
         mtx = fsEx.getNode('mtx').mat()
         dist = fsEx.getNode('dist').mat()
@@ -263,10 +263,10 @@ def trainGMM(pressNum):
         fn = 0
         while True:
             ret, image = camera_handles.read()
-            if fn == pressNum:
+            if fn == frames[i]:
                 img = image
                 # cv2.imshow('foreground', image)
-                # cv2.waitKey(2000)
+                # cv2.waitKey(0)
                 break
             fn += 1
 
@@ -280,9 +280,7 @@ def trainGMM(pressNum):
                 # cv2.circle(img, tuple([pts[j][0][0], pts[j][0][1]]), 2, img[pts[j][0][1]][pts[j][0][0]].tolist(), -1)
             RGBdata[person] = pixels
             # cv2.imshow('img', img)
-            # cv2.waitKey(1000)
-
-        # return colorModel(RGBdata, frame)     # this no longer use
+            # cv2.waitKey(0)
 
         # create the GMM models
         components = 3
@@ -582,7 +580,8 @@ if __name__ == "__main__":
 
     # for n in NUMBERS:
     #     update(n,trainedGMMs)
-    drawPath()
+    # drawPath()
+    trainGMM([580, 0, 480, 900])
 
 
 

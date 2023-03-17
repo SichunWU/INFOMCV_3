@@ -231,5 +231,5 @@ def move_input(win, time):
 
 
 if __name__ == '__main__':
-    trainedGMMs = p3.trainGMM(0)
+    trainedGMMs = p3.trainGMM([0, 0, 480, 0])
     main()
