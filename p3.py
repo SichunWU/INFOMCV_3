@@ -22,7 +22,7 @@ path_video = ["./4persons/video/Take30.54389819.20141124164749.avi",
 # update voxel position
 def update(pressNum, trainedGMMs):
     global trackingP, trackingR
-    # print(pressNum)
+    print(pressNum)
     coord, label, center = loadCoord(pressNum)
     label = np.squeeze(label)
     coord = np.array(coord)
@@ -72,36 +72,87 @@ def update(pressNum, trainedGMMs):
             likelihoods1 = [gmm.score(C2D[n]) for gmm in trainedGMMs[1]]
             likelihoods2 = [gmm.score(C2D[n]) for gmm in trainedGMMs[2]]
             likelihoods3 = [gmm.score(C2D[n]) for gmm in trainedGMMs[3]]
-            # get the likelihood for a cluster of all trained GMMs
+            # get the label of max likelihood for a cluster of all trained GMMs
             likeli_allcam = [likelihoods0.index(max(likelihoods0)),
                            likelihoods1.index(max(likelihoods1)),
                            likelihoods2.index(max(likelihoods2)),
                            likelihoods3.index(max(likelihoods3))]
-            # set the predicted_label as the most common label appeared in all cameras
-            most_common = statistics.mode(likeli_allcam)
-            predicted_label.append(most_common)
-        # get the predicted_label of all cameras
-        predicted_label_4cam.append(predicted_label)
+            predicted_label.append(likeli_allcam)
+        predicted_label = np.transpose(np.array(predicted_label))
+        """"
+        Explain: the predicted_label will have the following format. 
+        Each row means the highest possible label of cluster 1 to 4. 
+        Each column is the result matching 4 trained GMMs
+        e.g. predicted_label =
+           [[0 3 1 0]
+           [3 3 1 0]
+           [2 3 3 0]
+           [2 3 3 3]]
+        """
 
-    predicted_label_4cam = np.array(predicted_label_4cam)
+        """
+          Counter is to count the occurrence of each number in a column. For the predicted_label, result is:
+          Counter({2: 2, 0: 1, 3: 1}) We need the most common number in column 0, common_numbers is 2.
+          Counter({3: 4})             We need the most common number in column 1, common_numbers is 3.
+          Counter({1: 2, 3: 2})       We need the most common number in column 2, common_numbers are 1 and 3.
+          Counter({0: 3, 3: 1})       We need the most common number in column 2, common_numbers is 0.
+          """
+        finalpredicted_label_4clus = []
+        predicted_label_4clus = []
+        for col in range(len(predicted_label[0])):
+            counts = Counter(row[col] for row in predicted_label)
+            max_count = max(counts.values())
+            common_numbers = [num for num, count in counts.items() if count == max_count]
+            predicted_label_4clus.append(common_numbers)
+        """
+        predicted_label_4clus will be the format [[2], [3], [1,3], [0]]
+        or [[2,3], [3], [1,3], [0]]
+        or [[2], [3], [1], [0]]...
+        """
+        col = 0
+        missingCol = []
+        for cn in predicted_label_4clus:
+            if len(cn) == 1:
+                finalpredicted_label_4clus.append(cn[0])
+            # if the item in common_numbers_4clus has multiple result, like [2,3]:
+            # check if one of the number not in other items of common_numbers_4clus
+            else:
+                valid_numbers = []
+                for num in cn:
+                    if col == 3:    # predicted_label_4clus[3] has multiple result
+                        if all(num not in sublist for sublist in predicted_label_4clus[:3]):
+                            valid_numbers.append(num)
+                    elif col == 0:  # predicted_label_4clus[0] has multiple result
+                        if all(num not in sublist for sublist in predicted_label_4clus[1:]):
+                            valid_numbers.append(num)
+                    else:           # predicted_label_4clus[1] or [2] has multiple result
+                        if all(num not in sublist for sublist in
+                               (predicted_label_4clus[:col] + predicted_label_4clus[col + 1:])):
+                            valid_numbers.append(num)
+
+                # valid_numbers can get one result, or empty. If empty, save the index that is missing.
+                if len(valid_numbers) == 1:
+                    finalpredicted_label_4clus.append(valid_numbers[0])
+                else:
+                    missingCol.append(col)
+            col += 1
+
+        # if finalpredicted_label_4clus is missing some items, add the missing one within 0 to 3
+        for x in missingCol:
+            if len(finalpredicted_label_4clus) < 4:
+                missing_elements = set([0, 1, 2, 3]).difference(set(finalpredicted_label_4clus))
+                if missing_elements:
+                    missing = missing_elements.pop()
+                    finalpredicted_label_4clus.insert(x, missing)
+
+        predicted_label_4cam.append(finalpredicted_label_4clus)
+
     """"
-    Explain: the predicted_label_4cam will have the following format. 
-    Each row means the highest possible label of cluster 1 to 4. Combined the results of training GMMs from 4 camera.
-    Each column is the result that projected voxels into camera 1 to 4.
-    e.g. predicted_label_4cam =
-    [[0 3 1 0]
-    [3 3 1 0]
-    [2 3 3 0]
-    [2 3 3 3]]
+      Explain: the predicted_label_4cam has the same structure as finalpredicted_label_4clus
+      Each row means the highest possible label of cluster 1 to 4.
+      Each column is the result that projected voxels into camera 1 to 4.
     """
-
-    """
-    Counter is to count the occurrence of each number in a column. For the predicted_label_4cam, result is:
-    Counter({2: 2, 0: 1, 3: 1}) We need the most common number in column 0, common_numbers is 2.
-    Counter({3: 4})             We need the most common number in column 1, common_numbers is 3.
-    Counter({1: 2, 3: 2})       We need the most common number in column 2, common_numbers are 1 and 3.
-    Counter({0: 3, 3: 1})       We need the most common number in column 2, common_numbers is 0.
-    """
+    predicted_label_4cam = np.array(predicted_label_4cam)
     final_label = []
     common_numbers_4clus = []
     for col in range(len(predicted_label_4cam[0])):
@@ -109,17 +160,11 @@ def update(pressNum, trainedGMMs):
         max_count = max(counts.values())
         common_numbers = [num for num, count in counts.items() if count == max_count]
         common_numbers_4clus. append(common_numbers)
-    # print(common_numbers_4clus)
-    """
-    common_numbers_4clus will be the format [[2], [3], [1,3], [0]]
-    or [[2,3], [3], [1,3], [0]]
-    or [[2], [3], [1], [0]]...
-    """
 
     # if common_numbers has more than one result,
     # we check if the numbers have been taken, if not assign it to this column
     col = 0
-    missingCol = None
+    missingCol = []
     for cn in common_numbers_4clus:
         if len(cn) == 1:
             final_label.append(cn[0])
@@ -142,16 +187,17 @@ def update(pressNum, trainedGMMs):
             if len(valid_numbers) == 1:
                 final_label.append(valid_numbers[0])
             else:
-                missingCol = col
+                missingCol.append(col)
         col += 1
 
     # if final_label is missing one item, add the missing one within 0 to 3
-    if len(final_label) < 4:
-        missing_elements = set([0, 1, 2, 3]).difference(set(final_label))
-        if missing_elements:
-            missing = missing_elements.pop()
-            final_label.insert(missingCol,missing)
-    # print(final_label)
+    for x in missingCol:
+        if len(final_label) < 4:
+            missing_elements = set([0, 1, 2, 3]).difference(set(final_label))
+            if missing_elements:
+                missing = missing_elements.pop()
+                final_label.insert(x,missing)
+    #print(final_label)
 
     color = [[255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 165, 0]]  # red 0, green 1, blue 2, yellow 3
     colors = []
@@ -237,22 +283,22 @@ def drawPath():
     cv2.waitKey(0)
 
 # train GMMs
-def trainGMM(pressNum):
+def trainGMM(frames):
     global paths_ex, path_video
-    path = f'./4persons/video/voxelCoords{pressNum}.xml'
-    fs = cv2.FileStorage(path, cv2.FILE_STORAGE_READ)
-    coord = fs.getNode('coord').mat()
-    label = fs.getNode('label').mat()
-
-    label = np.squeeze(label)
-    C0 = coord[label == 0]
-    C1 = coord[label == 1]
-    C2 = coord[label == 2]
-    C3 = coord[label == 3]
-    C3D = [C0, C1, C2, C3]
-
     trainedGMMs = []
     for i in range(4):
+        path = f'./4persons/video/voxelCoords{frames[i]}.xml'
+        fs = cv2.FileStorage(path, cv2.FILE_STORAGE_READ)
+        coord = fs.getNode('coord').mat()
+        label = fs.getNode('label').mat()
+
+        label = np.squeeze(label)
+        C0 = coord[label == 0]
+        C1 = coord[label == 1]
+        C2 = coord[label == 2]
+        C3 = coord[label == 3]
+        C3D = [C0, C1, C2, C3]
+
         fsEx = cv2.FileStorage(paths_ex[i], cv2.FILE_STORAGE_READ)
         mtx = fsEx.getNode('mtx').mat()
         dist = fsEx.getNode('dist').mat()
@@ -263,10 +309,10 @@ def trainGMM(pressNum):
         fn = 0
         while True:
             ret, image = camera_handles.read()
-            if fn == pressNum:
+            if fn == frames[i]:
                 img = image
                 # cv2.imshow('foreground', image)
-                # cv2.waitKey(2000)
+                # cv2.waitKey(0)
                 break
             fn += 1
 
@@ -280,9 +326,7 @@ def trainGMM(pressNum):
                 # cv2.circle(img, tuple([pts[j][0][0], pts[j][0][1]]), 2, img[pts[j][0][1]][pts[j][0][0]].tolist(), -1)
             RGBdata[person] = pixels
             # cv2.imshow('img', img)
-            # cv2.waitKey(1000)
-
-        # return colorModel(RGBdata, frame)     # this no longer use
+            # cv2.waitKey(0)
 
         # create the GMM models
         components = 3
@@ -577,12 +621,11 @@ if __name__ == "__main__":
 
     # assignment.set_voxel_positions(1, 1, 1, 200)
     # knn(140)
-    # trainedGMMs = trainGMM(0)
-    # update(300, trainedGMMs)
+    # trainedGMMs = trainGMM([0, 0, 480, 0])
+    # update(390, trainedGMMs)
 
-    # for n in NUMBERS:
-    #     update(n,trainedGMMs)
     drawPath()
+
 
 
 

@@ -181,7 +181,6 @@ def main():
     glfw.terminate()
 
 
-
 def resize_callback(window, w, h):
     if h > 0:
         global window_width, window_height, hdrbuffer, blurbuffer
@@ -231,5 +230,5 @@ def move_input(win, time):
 
 
 if __name__ == '__main__':
-    trainedGMMs = p3.trainGMM(0)
+    trainedGMMs = p3.trainGMM([0, 0, 480, 0])
     main()
